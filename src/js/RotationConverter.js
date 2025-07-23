@@ -49,7 +49,7 @@ export class RotationConverter {
         
         // Scene
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x1a1a1a);
+        this.scene.background = new THREE.Color(0xf5f5f5); // Light gray background
         
         // Camera
         this.camera = new THREE.PerspectiveCamera(
@@ -86,7 +86,7 @@ export class RotationConverter {
         this.scene.add(directionalLight);
         
         // Grid
-        const gridHelper = new THREE.GridHelper(10, 10, 0x444444, 0x222222);
+        const gridHelper = new THREE.GridHelper(10, 10, 0x666666, 0x999999);
         this.scene.add(gridHelper);
         
         // Handle window resize
@@ -329,6 +329,34 @@ export class RotationConverter {
         return newFrame;
     }
     
+    addChildFrame() {
+        console.log('🌿 Adding child frame to active frame...');
+        
+        const activeFrame = this.getActiveFrame();
+        if (!activeFrame) {
+            alert('Please select a frame first before adding a child frame.');
+            return null;
+        }
+        
+        const frameName = prompt(`Enter name for child frame of "${activeFrame.name}":`, 'Child Frame');
+        if (!frameName) {
+            return null; // User cancelled
+        }
+        
+        const newFrame = this.createReferenceFrame(
+            frameName,
+            { x: 1, y: 0, z: 0 }, // Default position offset from parent
+            this.getRandomColor(),
+            activeFrame
+        );
+        
+        this.activeFrameId = newFrame.id;
+        this.updateUI();
+        
+        console.log(`✅ Child frame "${frameName}" added to "${activeFrame.name}"`);
+        return newFrame;
+    }
+    
     removeFrame(frameId) {
         console.log(`🗑️ Removing frame: ${frameId}`);
         
@@ -367,6 +395,27 @@ export class RotationConverter {
         }
         
         this.updateUI();
+    }
+    
+    removeActiveFrame() {
+        console.log('🗑️ Removing active frame...');
+        
+        const activeFrame = this.getActiveFrame();
+        if (!activeFrame) {
+            alert('No frame selected to remove.');
+            return;
+        }
+        
+        if (activeFrame === this.worldFrame) {
+            alert('Cannot remove the World frame.');
+            return;
+        }
+        
+        const confirmMessage = `Are you sure you want to remove "${activeFrame.name}"?\n\nNote: Child frames will be moved to the parent frame.`;
+        if (confirm(confirmMessage)) {
+            this.removeFrame(activeFrame.id);
+            console.log(`✅ Frame "${activeFrame.name}" removed`);
+        }
     }
     
     selectFrame(frameId) {
@@ -492,6 +541,13 @@ export class RotationConverter {
         
         frameList.innerHTML = '';
         this.renderFrameTree(frameList, this.worldFrame, 0);
+        
+        // Update active frame display
+        const activeFrameDisplay = document.getElementById('active-frame-name');
+        const activeFrame = this.getActiveFrame();
+        if (activeFrameDisplay && activeFrame) {
+            activeFrameDisplay.textContent = activeFrame.name;
+        }
     }
     
     renderFrameTree(container, frame, depth) {

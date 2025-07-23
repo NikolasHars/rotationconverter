@@ -13,10 +13,26 @@ export function createInputPanel() {
             <div class="frame-management">
                 <h3>Reference Frames</h3>
                 
+                <div class="form-group">
+                    <label>Active Frame:</label>
+                    <div id="active-frame-display" class="active-frame-display">
+                        <span id="active-frame-name">World</span>
+                    </div>
+                </div>
+                
                 <div class="frame-controls">
                     <button class="btn btn-primary btn-sm" onclick="rotationConverter.addFrame(prompt('Frame name:') || 'New Frame')">
                         ➕ Add Frame
                     </button>
+                    <button class="btn btn-success btn-sm" onclick="rotationConverter.addChildFrame()">
+                        🌿 Add Child Frame
+                    </button>
+                    <button class="btn btn-warning btn-sm" onclick="rotationConverter.removeActiveFrame()">
+                        🗑️ Remove Frame
+                    </button>
+                </div>
+                
+                <div class="frame-controls">
                     <button class="btn btn-secondary btn-sm" onclick="rotationConverter.createDemoHierarchy()">
                         🎯 Demo Hierarchy
                     </button>
