@@ -58,6 +58,8 @@ export class RotationConverter {
             0.1,
             1000
         );
+        // Set Z-axis as up vector
+        this.camera.up.set(0, 0, 1);
         this.camera.position.set(5, 5, 5);
         this.camera.lookAt(0, 0, 0);
         
@@ -73,6 +75,8 @@ export class RotationConverter {
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.05;
+        // Set Z-axis as up for controls
+        this.controls.object.up.set(0, 0, 1);
         
         // Lighting
         const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
@@ -85,8 +89,9 @@ export class RotationConverter {
         directionalLight.shadow.mapSize.height = 2048;
         this.scene.add(directionalLight);
         
-        // Grid
+        // Grid - rotate to XY plane since Z is now up
         const gridHelper = new THREE.GridHelper(10, 10, 0x666666, 0x999999);
+        gridHelper.rotation.x = Math.PI / 2; // Rotate 90 degrees around X to make it lie in XY plane
         this.scene.add(gridHelper);
         
         // Handle window resize
@@ -196,6 +201,7 @@ export class RotationConverter {
             // Visual representation
             group: new THREE.Group(),
             color: color,
+            arrowScale: 1.0,
             
             // UI state
             isExpanded: true,
@@ -224,10 +230,11 @@ export class RotationConverter {
         console.log(`🎨 Creating visuals for frame: ${frame.name}`);
         
         const group = frame.group;
+        const scale = frame.arrowScale || 1.0;
         
         // Create coordinate axes
-        const axisLength = frame.parentFrame ? 1.5 : 2.0;
-        const axisWidth = frame.parentFrame ? 0.02 : 0.03;
+        const axisLength = (frame.parentFrame ? 1.5 : 2.0) * scale;
+        const axisWidth = (frame.parentFrame ? 0.02 : 0.03) * scale;
         
         // X-axis (red)
         const xGeometry = new THREE.CylinderGeometry(axisWidth, axisWidth, axisLength, 8);
@@ -722,6 +729,20 @@ export class RotationConverter {
         this.isUpdatingInputs = true;
         
         try {
+            // Update frame name input
+            const frameNameInput = document.getElementById('frame-name-input');
+            if (frameNameInput) {
+                frameNameInput.value = frame.name;
+            }
+            
+            // Update arrow scale input
+            const arrowScaleInput = document.getElementById('arrow-scale-input');
+            const arrowScaleValue = document.getElementById('arrow-scale-value');
+            if (arrowScaleInput && arrowScaleValue) {
+                arrowScaleInput.value = frame.arrowScale || 1.0;
+                arrowScaleValue.textContent = `${(frame.arrowScale || 1.0).toFixed(1)}x`;
+            }
+            
             // Update position inputs
             const posInputs = ['position-x', 'position-y', 'position-z'];
             [frame.position.x, frame.position.y, frame.position.z].forEach((value, i) => {
@@ -1164,6 +1185,140 @@ export class RotationConverter {
             const isVisible = legend.style.display !== 'none';
             legend.style.display = isVisible ? 'none' : 'block';
         }
+    }
+    
+    resetCamera() {
+        // Reset camera to default position with Z-up orientation
+        this.camera.up.set(0, 0, 1);
+        this.camera.position.set(5, 5, 5);
+        this.camera.lookAt(0, 0, 0);
+        this.controls.object.up.set(0, 0, 1);
+        this.controls.reset();
+    }
+    
+    // Frame arrow scaling
+    updateArrowScale(scale) {
+        const frame = this.getActiveFrame();
+        if (!frame) return;
+        
+        const scaleValue = parseFloat(scale);
+        document.getElementById('arrow-scale-value').textContent = `${scaleValue.toFixed(1)}x`;
+        
+        // Update frame arrow scale
+        frame.arrowScale = scaleValue;
+        this.updateFrameArrowScale(frame, scaleValue);
+    }
+    
+    updateFrameArrowScale(frame, scale) {
+        // Store the current scale
+        frame.arrowScale = scale;
+        
+        // Clear existing visuals
+        const group = frame.group;
+        while (group.children.length > 0) {
+            const child = group.children[0];
+            group.remove(child);
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) child.material.dispose();
+        }
+        
+        // Recreate visuals with new scale
+        this.createFrameVisuals(frame);
+        
+        // Update transform to maintain position
+        this.updateFrameTransform(frame);
+    }
+    
+    // Frame renaming
+    renameActiveFrame(newName) {
+        const frame = this.getActiveFrame();
+        if (!frame || !newName.trim()) return;
+        
+        const trimmedName = newName.trim();
+        if (trimmedName === frame.name) return;
+        
+        // Update frame name
+        frame.name = trimmedName;
+        
+        // Update UI
+        document.getElementById('active-frame-name').textContent = trimmedName;
+        this.updateFrameList();
+        
+        // Update frame label in 3D scene
+        this.updateFrameLabel(frame);
+    }
+    
+    updateFrameLabel(frame) {
+        // Remove existing label
+        const existingLabel = frame.group.children.find(child => child.userData?.isLabel);
+        if (existingLabel) {
+            frame.group.remove(existingLabel);
+        }
+        
+        // Create new label if not world frame
+        if (frame.name !== 'World') {
+            this.createFrameLabel(frame, frame.group);
+        }
+    }
+    
+    // Insert frame between current frame and its parent
+    showInsertFrameDialog() {
+        const activeFrame = this.getActiveFrame();
+        if (!activeFrame || !activeFrame.parentFrame) {
+            alert('Cannot insert parent frame for World frame or frames without parents.');
+            return;
+        }
+        
+        const frameName = prompt('Enter name for the new parent frame:', 'Intermediate');
+        if (!frameName) return;
+        
+        this.insertParentFrame(activeFrame, frameName.trim());
+    }
+    
+    insertParentFrame(childFrame, newFrameName) {
+        const originalParent = childFrame.parentFrame;
+        if (!originalParent) return;
+        
+        // Create new intermediate frame
+        const intermediateFrame = {
+            id: `frame_${this.frameCounter++}`,
+            name: newFrameName,
+            parentFrame: originalParent,
+            children: [childFrame],
+            position: new THREE.Vector3().copy(childFrame.position),
+            localQuaternion: new THREE.Quaternion().copy(childFrame.localQuaternion),
+            group: new THREE.Group(),
+            color: this.getRandomColor(),
+            arrowScale: 1.0
+        };
+        
+        // Update parent-child relationships
+        const childIndex = originalParent.children.indexOf(childFrame);
+        if (childIndex !== -1) {
+            originalParent.children[childIndex] = intermediateFrame;
+        }
+        childFrame.parentFrame = intermediateFrame;
+        
+        // Reset child frame's transform (it inherits parent's transform now)
+        childFrame.position.set(0, 0, 0);
+        childFrame.localQuaternion.set(0, 0, 0, 1);
+        
+        // Add to scene
+        originalParent.group.add(intermediateFrame.group);
+        intermediateFrame.group.add(childFrame.group);
+        
+        // Create visuals and update transforms
+        this.createFrameVisuals(intermediateFrame);
+        this.frames.set(intermediateFrame.id, intermediateFrame);
+        
+        // Update transforms
+        this.updateFrameTransform(originalParent);
+        
+        // Select the new intermediate frame
+        this.activeFrameId = intermediateFrame.id;
+        this.updateUI();
+        
+        console.log(`✅ Inserted frame "${newFrameName}" between "${originalParent.name}" and "${childFrame.name}"`);
     }
     
     // Update slider values when switching frames or updating rotations

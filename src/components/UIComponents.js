@@ -20,12 +20,35 @@ export function createInputPanel() {
                     </div>
                 </div>
                 
+                <div class="form-group">
+                    <label for="frame-name-input">Frame Name:</label>
+                    <input type="text" id="frame-name-input" class="form-control" 
+                           placeholder="Enter frame name" 
+                           onchange="rotationConverter.renameActiveFrame(this.value)"
+                           data-tooltip="Rename the current frame">
+                </div>
+                
+                <div class="form-group">
+                    <label for="arrow-scale-input">Arrow Scale:</label>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="range" id="arrow-scale-input" class="form-control" 
+                               min="0.1" max="3.0" value="1.0" step="0.1"
+                               oninput="rotationConverter.updateArrowScale(this.value)"
+                               data-tooltip="Adjust the size of coordinate frame arrows"
+                               style="flex: 1;">
+                        <span id="arrow-scale-value" class="slider-value" style="min-width: 40px;">1.0x</span>
+                    </div>
+                </div>
+                
                 <div class="frame-controls">
                     <button class="btn btn-primary btn-sm" onclick="rotationConverter.addFrame(prompt('Frame name:') || 'New Frame')">
                         ➕ Add Frame
                     </button>
                     <button class="btn btn-success btn-sm" onclick="rotationConverter.addChildFrame()">
                         🌿 Add Child Frame
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="rotationConverter.showInsertFrameDialog()">
+                        🔄 Insert Parent
                     </button>
                     <button class="btn btn-warning btn-sm" onclick="rotationConverter.removeActiveFrame()">
                         🗑️ Remove Frame
