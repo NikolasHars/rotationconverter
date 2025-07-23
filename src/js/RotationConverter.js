@@ -126,6 +126,17 @@ export class RotationConverter {
             }
         }
         
+        // Matrix text input
+        const matrixTextInput = document.getElementById('matrix-text');
+        if (matrixTextInput) {
+            matrixTextInput.addEventListener('change', () => this.updateFromMatrixText());
+            matrixTextInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && e.ctrlKey) {
+                    this.updateFromMatrixText();
+                }
+            });
+        }
+        
         // Quaternion inputs
         ['q0', 'q1', 'q2', 'q3'].forEach(id => {
             const input = document.getElementById(id);
@@ -133,6 +144,17 @@ export class RotationConverter {
                 input.addEventListener('input', () => this.updateFromQuaternion());
             }
         });
+        
+        // Quaternion text input
+        const quaternionTextInput = document.getElementById('quaternion-text');
+        if (quaternionTextInput) {
+            quaternionTextInput.addEventListener('change', () => this.updateFromQuaternionText());
+            quaternionTextInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.updateFromQuaternionText();
+                }
+            });
+        }
         
         // Euler inputs
         ['euler-x', 'euler-y', 'euler-z'].forEach(id => {
@@ -169,6 +191,7 @@ export class RotationConverter {
             position: new THREE.Vector3(position.x, position.y, position.z),
             localQuaternion: new THREE.Quaternion(),
             quaternion: new THREE.Quaternion(), // World quaternion
+            worldPosition: new THREE.Vector3(), // World position
             
             // Visual representation
             group: new THREE.Group(),
@@ -281,24 +304,30 @@ export class RotationConverter {
         
         console.log(`🔄 Updating transform for frame: ${frame.name}`);
         
-        // Calculate world transform
+        // Apply local transform directly to the Three.js group
+        // Three.js will handle the world transform calculation automatically
+        frame.group.position.copy(frame.position);
+        frame.group.quaternion.copy(frame.localQuaternion);
+        
+        // Calculate world transform for our own tracking
         if (frame.parentFrame) {
-            // Child frame: combine parent's world transform with local transform
+            // World rotation = parent_world_rotation * local_rotation
             frame.quaternion.multiplyQuaternions(frame.parentFrame.quaternion, frame.localQuaternion);
             
-            // Transform local position by parent's rotation and add to parent's position
-            const rotatedPosition = frame.position.clone().applyQuaternion(frame.parentFrame.quaternion);
-            frame.group.position.copy(frame.parentFrame.group.position).add(rotatedPosition);
+            // World position = parent_world_position + (parent_world_rotation * local_position)
+            const localPosInWorld = frame.position.clone().applyQuaternion(frame.parentFrame.quaternion);
+            frame.worldPosition = frame.parentFrame.worldPosition.clone().add(localPosInWorld);
         } else {
-            // World frame: use local transform directly
+            // World frame: world transform = local transform
             frame.quaternion.copy(frame.localQuaternion);
-            frame.group.position.copy(frame.position);
+            frame.worldPosition = frame.position.clone();
         }
         
-        // Apply rotation to group
-        frame.group.quaternion.copy(frame.quaternion);
+        console.log(`📍 Frame ${frame.name} local position: [${frame.position.x.toFixed(3)}, ${frame.position.y.toFixed(3)}, ${frame.position.z.toFixed(3)}]`);
+        console.log(`📍 Frame ${frame.name} world position: [${frame.worldPosition.x.toFixed(3)}, ${frame.worldPosition.y.toFixed(3)}, ${frame.worldPosition.z.toFixed(3)}]`);
+        console.log(`📐 Frame ${frame.name} world quaternion: [${frame.quaternion.x.toFixed(3)}, ${frame.quaternion.y.toFixed(3)}, ${frame.quaternion.z.toFixed(3)}, ${frame.quaternion.w.toFixed(3)}]`);
         
-        // Update all children
+        // Update all children recursively
         frame.children.forEach(child => {
             this.updateFrameTransform(child);
         });
@@ -484,6 +513,69 @@ export class RotationConverter {
         }
     }
     
+    updateFromMatrixText() {
+        if (this.isUpdatingInputs) return;
+        
+        const frame = this.getActiveFrame();
+        if (!frame) return;
+        
+        try {
+            const textInput = document.getElementById('matrix-text');
+            if (!textInput || !textInput.value.trim()) return;
+            
+            let text = textInput.value.trim();
+            
+            // Replace newlines and multiple spaces with single spaces
+            text = text.replace(/\s+/g, ' ');
+            
+            // Remove brackets and commas if present
+            text = text.replace(/[\[\](),]/g, ' ').replace(/\s+/g, ' ').trim();
+            
+            // Split by whitespace
+            const values = text.split(' ').filter(v => v.length > 0);
+            
+            if (values.length !== 9) {
+                alert('Please enter exactly 9 values for a 3x3 matrix');
+                return;
+            }
+            
+            const elements = values.map(v => parseFloat(v));
+            
+            // Check if all values are valid numbers
+            if (elements.some(v => isNaN(v))) {
+                alert('Please enter valid numbers for matrix elements');
+                return;
+            }
+            
+            // Update the matrix inputs
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    const input = document.getElementById(`m${i}${j}`);
+                    if (input) {
+                        input.value = elements[i * 3 + j].toFixed(6);
+                    }
+                }
+            }
+            
+            // Create matrix and convert to quaternion
+            const matrix = new THREE.Matrix3();
+            matrix.set(...elements);
+            
+            const mat4 = new THREE.Matrix4();
+            mat4.setFromMatrix3(matrix);
+            frame.localQuaternion.setFromRotationMatrix(mat4);
+            
+            this.updateFrameTransform(frame);
+            this.updateInputsFromActiveFrame();
+            this.updateOutputs();
+            
+            console.log(`✅ Matrix updated from text`);
+        } catch (error) {
+            console.error('Error updating from matrix text:', error);
+            alert('Error parsing matrix. Please check the format.');
+        }
+    }
+    
     updateFromQuaternion() {
         if (this.isUpdatingInputs) return;
         
@@ -503,6 +595,57 @@ export class RotationConverter {
             this.updateOutputs();
         } catch (error) {
             console.error('Error updating from quaternion:', error);
+        }
+    }
+    
+    updateFromQuaternionText() {
+        if (this.isUpdatingInputs) return;
+        
+        const frame = this.getActiveFrame();
+        if (!frame) return;
+        
+        try {
+            const textInput = document.getElementById('quaternion-text');
+            if (!textInput || !textInput.value.trim()) return;
+            
+            let text = textInput.value.trim();
+            
+            // Remove brackets and commas if present
+            text = text.replace(/[\[\]]/g, '').replace(/,/g, ' ');
+            
+            // Split by whitespace and filter out empty strings
+            const values = text.split(/\s+/).filter(v => v.length > 0);
+            
+            if (values.length !== 4) {
+                alert('Please enter exactly 4 values for quaternion (x, y, z, w)');
+                return;
+            }
+            
+            const [x, y, z, w] = values.map(v => parseFloat(v));
+            
+            // Check if all values are valid numbers
+            if ([x, y, z, w].some(v => isNaN(v))) {
+                alert('Please enter valid numbers for quaternion components');
+                return;
+            }
+            
+            // Update the quaternion
+            frame.localQuaternion.set(x, y, z, w).normalize();
+            
+            // Update the individual input fields
+            document.getElementById('q0').value = frame.localQuaternion.x.toFixed(6);
+            document.getElementById('q1').value = frame.localQuaternion.y.toFixed(6);
+            document.getElementById('q2').value = frame.localQuaternion.z.toFixed(6);
+            document.getElementById('q3').value = frame.localQuaternion.w.toFixed(6);
+            
+            this.updateFrameTransform(frame);
+            this.updateInputsFromActiveFrame();
+            this.updateOutputs();
+            
+            console.log(`✅ Quaternion updated from text: [${x}, ${y}, ${z}, ${w}]`);
+        } catch (error) {
+            console.error('Error updating from quaternion text:', error);
+            alert('Error parsing quaternion. Please check the format.');
         }
     }
     
@@ -596,6 +739,16 @@ export class RotationConverter {
                 }
             }
             
+            // Update matrix text input
+            const matrixTextInput = document.getElementById('matrix-text');
+            if (matrixTextInput) {
+                const matrixText = 
+                    `${m[0].toFixed(6)} ${m[4].toFixed(6)} ${m[8].toFixed(6)}\n` +
+                    `${m[1].toFixed(6)} ${m[5].toFixed(6)} ${m[9].toFixed(6)}\n` +
+                    `${m[2].toFixed(6)} ${m[6].toFixed(6)} ${m[10].toFixed(6)}`;
+                matrixTextInput.value = matrixText;
+            }
+            
             // Update quaternion inputs
             const qInputs = ['q0', 'q1', 'q2', 'q3'];
             [frame.localQuaternion.x, frame.localQuaternion.y, frame.localQuaternion.z, frame.localQuaternion.w]
@@ -603,6 +756,13 @@ export class RotationConverter {
                     const input = document.getElementById(qInputs[i]);
                     if (input) input.value = value.toFixed(6);
                 });
+            
+            // Update quaternion text input
+            const quaternionTextInput = document.getElementById('quaternion-text');
+            if (quaternionTextInput) {
+                const q = frame.localQuaternion;
+                quaternionTextInput.value = `${q.x.toFixed(6)} ${q.y.toFixed(6)} ${q.z.toFixed(6)} ${q.w.toFixed(6)}`;
+            }
             
             // Update euler inputs
             const euler = new THREE.Euler().setFromQuaternion(frame.localQuaternion, 'XYZ');
@@ -650,13 +810,17 @@ export class RotationConverter {
         // Update world transform outputs
         const worldPosOutput = document.getElementById('world-position-output');
         if (worldPosOutput) {
-            const worldPos = frame.group.position;
+            // Get actual world position from Three.js
+            const worldPos = new THREE.Vector3();
+            frame.group.getWorldPosition(worldPos);
             worldPosOutput.textContent = `[${worldPos.x.toFixed(6)}, ${worldPos.y.toFixed(6)}, ${worldPos.z.toFixed(6)}]`;
         }
         
         const worldQuatOutput = document.getElementById('world-quaternion-output');
         if (worldQuatOutput) {
-            const worldQuat = frame.quaternion;
+            // Get actual world quaternion from Three.js
+            const worldQuat = new THREE.Quaternion();
+            frame.group.getWorldQuaternion(worldQuat);
             worldQuatOutput.textContent = `[${worldQuat.x.toFixed(6)}, ${worldQuat.y.toFixed(6)}, ${worldQuat.z.toFixed(6)}, ${worldQuat.w.toFixed(6)}]`;
         }
     }
@@ -670,22 +834,24 @@ export class RotationConverter {
     createDemoHierarchy() {
         console.log('🎯 Creating demo hierarchy...');
         
-        const robotBase = this.addFrame('Robot Base', this.worldFrame.id);
-        const arm1 = this.addFrame('Arm 1', robotBase.id);
-        const arm2 = this.addFrame('Arm 2', arm1.id);
-        const endEffector = this.addFrame('End Effector', arm2.id);
+        // Clear existing frames except world
+        this.clearAllFrames();
         
-        // Set some demo positions and rotations
-        robotBase.position.set(0, 1, 0);
-        arm1.position.set(2, 0, 0);
-        arm1.localQuaternion.setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 4);
-        arm2.position.set(1.5, 0, 0);
-        endEffector.position.set(1, 0, 0);
+        // Create a simple test case to verify proper transforms
+        const frameA = this.addFrame('Frame A', this.worldFrame.id);
+        frameA.position.set(1, 0, 0); // 1 unit along X from world
         
+        const frameB = this.addFrame('Frame B', frameA.id);
+        frameB.position.set(1, 0, 0); // 1 unit along X from Frame A (should be at world position [2,0,0])
+        
+        const frameC = this.addFrame('Frame C', frameB.id);
+        frameC.position.set(1, 0, 0); // 1 unit along X from Frame B (should be at world position [3,0,0])
+        
+        // Update all transforms starting from world frame
         this.updateFrameTransform(this.worldFrame);
         this.updateUI();
         
-        console.log('✅ Demo hierarchy created');
+        console.log('✅ Demo hierarchy created - Frame A at [1,0,0], Frame B should be at [2,0,0], Frame C at [3,0,0]');
     }
     
     clearAllFrames() {
@@ -788,9 +954,15 @@ export class RotationConverter {
         const frame = this.frames.get(frameId);
         if (!frame) return null;
         
+        const worldPosition = new THREE.Vector3();
+        const worldQuaternion = new THREE.Quaternion();
+        
+        frame.group.getWorldPosition(worldPosition);
+        frame.group.getWorldQuaternion(worldQuaternion);
+        
         return {
-            position: frame.group.position.clone(),
-            quaternion: frame.quaternion.clone()
+            position: worldPosition,
+            quaternion: worldQuaternion
         };
     }
     

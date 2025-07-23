@@ -77,6 +77,13 @@ export function createInputPanel() {
             <!-- Rotation Matrix Input -->
             <div class="input-section highlighted" data-input-type="matrix">
                 <h3>Rotation Matrix</h3>
+                <div class="form-group">
+                    <label for="matrix-text">Quick Input (paste matrix):</label>
+                    <textarea id="matrix-text" class="form-control" rows="3" 
+                              placeholder="e.g., 1 0 0&#10;0 1 0&#10;0 0 1" 
+                              onchange="rotationConverter.updateFromMatrixText()"
+                              data-tooltip="Paste 3x3 matrix, separated by spaces/newlines"></textarea>
+                </div>
                 <div class="matrix-inputs">
                     <input type="number" id="m00" class="rotation-input" value="1" step="0.000001" data-tooltip="Matrix element [0,0]">
                     <input type="number" id="m01" class="rotation-input" value="0" step="0.000001" data-tooltip="Matrix element [0,1]">
@@ -93,6 +100,13 @@ export function createInputPanel() {
             <!-- Quaternion Input -->
             <div class="input-section" data-input-type="quaternion">
                 <h3>Quaternion</h3>
+                <div class="form-group">
+                    <label for="quaternion-text">Quick Input (paste quaternion):</label>
+                    <input type="text" id="quaternion-text" class="form-control" 
+                           placeholder="e.g., 0.707 0 0 0.707 or [0.707, 0, 0, 0.707]" 
+                           onchange="rotationConverter.updateFromQuaternionText()"
+                           data-tooltip="Paste quaternion as: 'x y z w' or '[x, y, z, w]'">
+                </div>
                 <div class="vector-inputs with-label">
                     <span class="input-label">x</span>
                     <input type="number" id="q0" class="rotation-input" value="0" step="0.000001" data-tooltip="Quaternion x component">
