@@ -74,8 +74,30 @@ export function createInputPanel() {
                 </div>
             </div>
 
+            <!-- Quaternion Input -->
+            <div class="input-section highlighted" data-input-type="quaternion">
+                <h3>Quaternion</h3>
+                <div class="form-group">
+                    <label for="quaternion-text">Quick Input (paste quaternion):</label>
+                    <input type="text" id="quaternion-text" class="form-control" 
+                           placeholder="e.g., 0.707 0 0 0.707 or [0.707, 0, 0, 0.707]" 
+                           onchange="rotationConverter.updateFromQuaternionText()"
+                           data-tooltip="Paste quaternion as: 'x y z w' or '[x, y, z, w]'">
+                </div>
+                <div class="vector-inputs with-label">
+                    <span class="input-label">x</span>
+                    <input type="number" id="q0" class="rotation-input" value="0" step="0.000001" data-tooltip="Quaternion x component">
+                    <span class="input-label">y</span>
+                    <input type="number" id="q1" class="rotation-input" value="0" step="0.000001" data-tooltip="Quaternion y component">
+                    <span class="input-label">z</span>
+                    <input type="number" id="q2" class="rotation-input" value="0" step="0.000001" data-tooltip="Quaternion z component">
+                    <span class="input-label">w</span>
+                    <input type="number" id="q3" class="rotation-input" value="1" step="0.000001" data-tooltip="Quaternion w component (real part)">
+                </div>
+            </div>
+
             <!-- Rotation Matrix Input -->
-            <div class="input-section highlighted" data-input-type="matrix">
+            <div class="input-section" data-input-type="matrix">
                 <h3>Rotation Matrix</h3>
                 <div class="form-group">
                     <label for="matrix-text">Quick Input (paste matrix):</label>
@@ -94,28 +116,6 @@ export function createInputPanel() {
                     <input type="number" id="m20" class="rotation-input" value="0" step="0.000001" data-tooltip="Matrix element [2,0]">
                     <input type="number" id="m21" class="rotation-input" value="0" step="0.000001" data-tooltip="Matrix element [2,1]">
                     <input type="number" id="m22" class="rotation-input" value="1" step="0.000001" data-tooltip="Matrix element [2,2]">
-                </div>
-            </div>
-
-            <!-- Quaternion Input -->
-            <div class="input-section" data-input-type="quaternion">
-                <h3>Quaternion</h3>
-                <div class="form-group">
-                    <label for="quaternion-text">Quick Input (paste quaternion):</label>
-                    <input type="text" id="quaternion-text" class="form-control" 
-                           placeholder="e.g., 0.707 0 0 0.707 or [0.707, 0, 0, 0.707]" 
-                           onchange="rotationConverter.updateFromQuaternionText()"
-                           data-tooltip="Paste quaternion as: 'x y z w' or '[x, y, z, w]'">
-                </div>
-                <div class="vector-inputs with-label">
-                    <span class="input-label">x</span>
-                    <input type="number" id="q0" class="rotation-input" value="0" step="0.000001" data-tooltip="Quaternion x component">
-                    <span class="input-label">y</span>
-                    <input type="number" id="q1" class="rotation-input" value="0" step="0.000001" data-tooltip="Quaternion y component">
-                    <span class="input-label">z</span>
-                    <input type="number" id="q2" class="rotation-input" value="0" step="0.000001" data-tooltip="Quaternion z component">
-                    <span class="input-label">w</span>
-                    <input type="number" id="q3" class="rotation-input" value="1" step="0.000001" data-tooltip="Quaternion w component (real part)">
                 </div>
             </div>
 
@@ -141,6 +141,9 @@ export function createVisualizationPanel() {
             <div class="panel-header">
                 <h2 class="panel-title">3D Visualization</h2>
                 <div class="visualization-controls">
+                    <button class="btn btn-secondary btn-sm" onclick="rotationConverter.toggleLegend()" data-tooltip="Toggle legend">
+                        📝 Legend
+                    </button>
                     <button class="btn btn-secondary btn-sm" onclick="rotationConverter.resetCamera()" data-tooltip="Reset camera view">
                         🎥 Reset View
                     </button>
@@ -148,7 +151,36 @@ export function createVisualizationPanel() {
             </div>
             <div id="scene-container" class="scene-container"></div>
             
-            <div class="visualization-info">
+            <!-- Rotation Sliders -->
+            <div class="slider-section" style="margin-top: 1rem;">
+                <h3>Interactive Rotation</h3>
+                <div class="slider-group">
+                    <div class="slider-item">
+                        <label for="rot-x-slider">X-Axis Rotation</label>
+                        <input type="range" id="rot-x-slider" class="rotation-slider" 
+                               min="-180" max="180" value="0" step="1"
+                               oninput="rotationConverter.updateFromSlider('x', this.value)">
+                        <span id="rot-x-value" class="slider-value">0°</span>
+                    </div>
+                    <div class="slider-item">
+                        <label for="rot-y-slider">Y-Axis Rotation</label>
+                        <input type="range" id="rot-y-slider" class="rotation-slider" 
+                               min="-180" max="180" value="0" step="1"
+                               oninput="rotationConverter.updateFromSlider('y', this.value)">
+                        <span id="rot-y-value" class="slider-value">0°</span>
+                    </div>
+                    <div class="slider-item">
+                        <label for="rot-z-slider">Z-Axis Rotation</label>
+                        <input type="range" id="rot-z-slider" class="rotation-slider" 
+                               min="-180" max="180" value="0" step="1"
+                               oninput="rotationConverter.updateFromSlider('z', this.value)">
+                        <span id="rot-z-value" class="slider-value">0°</span>
+                    </div>
+                </div>
+                <button class="btn btn-secondary" onclick="rotationConverter.resetSliders()" style="margin-top: 10px;">Reset Rotation</button>
+            </div>
+            
+            <div id="visualization-legend" class="visualization-info" style="display: none;">
                 <p><strong>Controls:</strong></p>
                 <ul>
                     <li>🖱️ Left click + drag: Rotate view</li>

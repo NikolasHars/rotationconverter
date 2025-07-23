@@ -231,7 +231,7 @@ export class RotationConverter {
         
         // X-axis (red)
         const xGeometry = new THREE.CylinderGeometry(axisWidth, axisWidth, axisLength, 8);
-        const xMaterial = new THREE.MeshLambertMaterial({ color: 0xff0000 });
+        const xMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
         const xAxis = new THREE.Mesh(xGeometry, xMaterial);
         xAxis.rotation.z = -Math.PI / 2;
         xAxis.position.x = axisLength / 2;
@@ -246,7 +246,7 @@ export class RotationConverter {
         
         // Y-axis (green)
         const yGeometry = new THREE.CylinderGeometry(axisWidth, axisWidth, axisLength, 8);
-        const yMaterial = new THREE.MeshLambertMaterial({ color: 0x00ff00 });
+        const yMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
         const yAxis = new THREE.Mesh(yGeometry, yMaterial);
         yAxis.position.y = axisLength / 2;
         group.add(yAxis);
@@ -259,7 +259,7 @@ export class RotationConverter {
         
         // Z-axis (blue)
         const zGeometry = new THREE.CylinderGeometry(axisWidth, axisWidth, axisLength, 8);
-        const zMaterial = new THREE.MeshLambertMaterial({ color: 0x0000ff });
+        const zMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
         const zAxis = new THREE.Mesh(zGeometry, zMaterial);
         zAxis.rotation.x = Math.PI / 2;
         zAxis.position.z = axisLength / 2;
@@ -274,7 +274,7 @@ export class RotationConverter {
         
         // Origin sphere
         const originGeometry = new THREE.SphereGeometry(axisWidth * 1.5, 16, 16);
-        const originMaterial = new THREE.MeshLambertMaterial({ 
+        const originMaterial = new THREE.MeshBasicMaterial({ 
             color: frame.color,
             transparent: true,
             opacity: 0.8
@@ -772,6 +772,9 @@ export class RotationConverter {
                 if (input) input.value = value.toFixed(6);
             });
             
+            // Update sliders
+            this.updateSliders(frame);
+            
         } finally {
             this.isUpdatingInputs = false;
         }
@@ -1099,5 +1102,97 @@ export class RotationConverter {
         this.updateFrameTransform(this.worldFrame);
         this.activeFrameId = data.activeFrame || this.worldFrame.id;
         this.updateUI();
+    }
+
+    // Slider control methods
+    updateFromSlider(axis, value) {
+        if (this.isUpdatingInputs) return;
+        
+        const frame = this.getActiveFrame();
+        if (!frame) return;
+        
+        const degrees = parseFloat(value);
+        const radians = degrees * Math.PI / 180;
+        
+        // Update the value display
+        document.getElementById(`rot-${axis}-value`).textContent = `${degrees}°`;
+        
+        // Get current rotations from sliders
+        const xSlider = document.getElementById('rot-x-slider');
+        const ySlider = document.getElementById('rot-y-slider');
+        const zSlider = document.getElementById('rot-z-slider');
+        
+        const xRad = parseFloat(xSlider.value) * Math.PI / 180;
+        const yRad = parseFloat(ySlider.value) * Math.PI / 180;
+        const zRad = parseFloat(zSlider.value) * Math.PI / 180;
+        
+        // Create rotation from Euler angles (XYZ order)
+        const euler = new THREE.Euler(xRad, yRad, zRad, 'XYZ');
+        frame.localQuaternion.setFromEuler(euler);
+        
+        // Update all rotation input methods
+        this.updateInputsFromActiveFrame();
+        this.updateFrameTransform(frame);
+    }
+    
+    resetSliders() {
+        const frame = this.getActiveFrame();
+        if (!frame) return;
+        
+        // Reset all sliders to 0
+        const sliders = ['rot-x-slider', 'rot-y-slider', 'rot-z-slider'];
+        sliders.forEach(id => {
+            const slider = document.getElementById(id);
+            if (slider) {
+                slider.value = 0;
+                const axis = id.split('-')[1];
+                document.getElementById(`rot-${axis}-value`).textContent = '0°';
+            }
+        });
+        
+        // Reset frame rotation to identity
+        frame.localQuaternion.set(0, 0, 0, 1);
+        
+        // Update all rotation input methods
+        this.updateInputsFromActiveFrame();
+        this.updateFrameTransform(frame);
+    }
+    
+    toggleLegend() {
+        const legend = document.getElementById('visualization-legend');
+        if (legend) {
+            const isVisible = legend.style.display !== 'none';
+            legend.style.display = isVisible ? 'none' : 'block';
+        }
+    }
+    
+    // Update slider values when switching frames or updating rotations
+    updateSliders(frame) {
+        if (this.isUpdatingInputs) return;
+        
+        // Get Euler angles from quaternion
+        const euler = new THREE.Euler().setFromQuaternion(frame.localQuaternion, 'XYZ');
+        
+        const xDeg = euler.x * 180 / Math.PI;
+        const yDeg = euler.y * 180 / Math.PI;
+        const zDeg = euler.z * 180 / Math.PI;
+        
+        // Update slider positions and value displays
+        const xSlider = document.getElementById('rot-x-slider');
+        const ySlider = document.getElementById('rot-y-slider');
+        const zSlider = document.getElementById('rot-z-slider');
+        
+        if (xSlider) {
+            xSlider.value = Math.max(-180, Math.min(180, xDeg));
+            document.getElementById('rot-x-value').textContent = `${Math.round(xDeg)}°`;
+        }
+        if (ySlider) {
+            ySlider.value = Math.max(-180, Math.min(180, yDeg));
+            document.getElementById('rot-y-value').textContent = `${Math.round(yDeg)}°`;
+        }
+        if (zSlider) {
+            zSlider.value = Math.max(-180, Math.min(180, zDeg));
+            document.getElementById('rot-z-value').textContent = `${Math.round(zDeg)}°`;
+        }
     }
 }
