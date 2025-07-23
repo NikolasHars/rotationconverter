@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Rotation Converter - Modern Hierarchical</title>
+    <link rel="icon" type="image/png" href="rotation-icon.png">
+    <link rel="apple-touch-icon" type="image/png" href="rotation-icon.png">
+    <link rel="stylesheet" href="src/css/styles.css">
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="rotation-icon.svg" as="image">
+    <link rel="preload" href="https://unpkg.com/three@0.147/build/three.module.js" as="script" crossorigin>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <img src="rotation-icon.svg" alt="3D Rotation Icon" class="header-icon" 
+                 onerror="this.onerror=null; this.src='rotation-icon.png';">
+            <div>
+                <h1>3D Rotation Converter</h1>
+                <p style="margin: 0; color: var(--text-secondary); font-size: 1rem;">
+                    Modern hierarchical reference frame system with real-time 3D visualization
+                </p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Input Panel -->
+            <section class="input-panel" id="input-panel">
+                <!-- Will be populated by JavaScript -->
+            </section>
+
+            <!-- 3D Visualization Panel -->
+            <section class="visualization-panel" id="visualization-panel">
+                <!-- Will be populated by JavaScript -->
+            </section>
+
+            <!-- Output Panel -->
+            <section class="output-panel" id="output-panel">
+                <!-- Will be populated by JavaScript -->
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer style="margin-top: 3rem; padding: 2rem 0; border-top: 1px solid var(--border-color); text-align: center; color: var(--text-secondary);">
+            <p>
+                <strong>3D Rotation Converter</strong> - 
+                <a href="https://github.com/NikolasHars/rotationconverter" target="_blank" style="color: var(--primary-color);">Open Source</a> | 
+                <a href="LICENSE" style="color: var(--primary-color);">MIT License</a>
+            </p>
+            <p style="font-size: 0.875rem; margin-top: 0.5rem;">
+                Convert between rotation matrices, quaternions, Euler angles with hierarchical reference frames
+            </p>
+        </footer>
+    </div>
+
+    <!-- Loading indicator -->
+    <div id="loading-overlay" style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(248, 250, 252, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        font-family: var(--font-family);
+        color: var(--text-primary);
+    ">
+        <div class="loading">Loading 3D Rotation Converter...</div>
+    </div>
+
+    <!-- Three.js Module Imports -->
+    <script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.147/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.147/examples/jsm/"
+        }
+    }
+    </script>
+
+    <!-- Application Scripts -->
+    <script type="module">
+        // Import modules
+        import { RotationConverter } from './src/js/RotationConverter.js';
+        import { createInputPanel, createVisualizationPanel, createOutputPanel } from './src/components/UIComponents.js';
+
+        // Wait for DOM to be ready
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('🚀 Starting 3D Rotation Converter...');
+            
+            try {
+                // Populate UI components
+                document.getElementById('input-panel').innerHTML = createInputPanel();
+                document.getElementById('visualization-panel').innerHTML = createVisualizationPanel();
+                document.getElementById('output-panel').innerHTML = createOutputPanel();
+                
+                // Initialize the rotation converter
+                const rotationConverter = new RotationConverter();
+                
+                // Make it globally available
+                window.rotationConverter = rotationConverter;
+                
+                // Add additional methods to the converter for export functionality
+                rotationConverter.exportAsJSON = function() {
+                    console.log('📄 Exporting as JSON...');
+                    
+                    const data = {
+                        timestamp: new Date().toISOString(),
+                        worldFrame: this.worldFrame.id,
+                        activeFrame: this.activeFrameId,
+                        frames: {}
+                    };
+                    
+                    this.frames.forEach((frame, id) => {
+                        data.frames[id] = {
+                            id: frame.id,
+                            name: frame.name,
+                            parentFrame: frame.parentFrame ? frame.parentFrame.id : null,
+                            position: {
+                                x: frame.position.x,
+                                y: frame.position.y,
+                                z: frame.position.z
+                            },
+                            localQuaternion: {
+                                x: frame.localQuaternion.x,
+                                y: frame.localQuaternion.y,
+                                z: frame.localQuaternion.z,
+                                w: frame.localQuaternion.w
+                            },
+                            worldQuaternion: {
+                                x: frame.quaternion.x,
+                                y: frame.quaternion.y,
+                                z: frame.quaternion.z,
+                                w: frame.quaternion.w
+                            }
+                        };
+                    });
+                    
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { 
+                        type: 'application/json' 
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = '3d-rotation-frames.json';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    console.log('✅ JSON export complete');
+                };
+                
+                rotationConverter.exportAsCSV = function() {
+                    console.log('📊 Exporting as CSV...');
+                    
+                    let csv = 'Frame Name,Parent Frame,Position X,Position Y,Position Z,Local Quat X,Local Quat Y,Local Quat Z,Local Quat W,World Quat X,World Quat Y,World Quat Z,World Quat W\\n';
+                    
+                    this.frames.forEach(frame => {
+                        csv += `"${frame.name}","${frame.parentFrame ? frame.parentFrame.name : 'None'}",`;
+                        csv += `${frame.position.x},${frame.position.y},${frame.position.z},`;
+                        csv += `${frame.localQuaternion.x},${frame.localQuaternion.y},${frame.localQuaternion.z},${frame.localQuaternion.w},`;
+                        csv += `${frame.quaternion.x},${frame.quaternion.y},${frame.quaternion.z},${frame.quaternion.w}\\n`;
+                    });
+                    
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = '3d-rotation-frames.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    console.log('✅ CSV export complete');
+                };
+                
+                rotationConverter.resetCamera = function() {
+                    console.log('🎥 Resetting camera...');
+                    this.camera.position.set(5, 5, 5);
+                    this.camera.lookAt(0, 0, 0);
+                    this.controls.reset();
+                };
+                
+                // Global helper functions for UI
+                window.handleImport = function(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        try {
+                            const data = JSON.parse(e.target.result);
+                            rotationConverter.importFrameHierarchy(data);
+                            console.log('✅ Frame hierarchy imported successfully');
+                        } catch (error) {
+                            console.error('❌ Failed to import frame hierarchy:', error);
+                            alert('Failed to import frame hierarchy. Please check the file format.');
+                        }
+                    };
+                    reader.readAsText(file);
+                };
+                
+                window.downloadFrameHierarchy = function() {
+                    const data = rotationConverter.exportFrameHierarchy();
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { 
+                        type: 'application/json' 
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `3d-rotation-frames-${new Date().toISOString().slice(0,10)}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                };
+                
+                // Hide loading overlay
+                const loadingOverlay = document.getElementById('loading-overlay');
+                if (loadingOverlay) {
+                    loadingOverlay.style.opacity = '0';
+                    setTimeout(() => {
+                        loadingOverlay.style.display = 'none';
+                    }, 300);
+                }
+                
+                console.log('✅ 3D Rotation Converter initialized successfully');
+                
+            } catch (error) {
+                console.error('❌ Failed to initialize 3D Rotation Converter:', error);
+                
+                // Show error message
+                const loadingOverlay = document.getElementById('loading-overlay');
+                if (loadingOverlay) {
+                    loadingOverlay.innerHTML = `
+                        <div style="text-align: center; color: var(--error-color);">
+                            <h2>❌ Failed to Load</h2>
+                            <p>There was an error initializing the 3D Rotation Converter.</p>
+                            <p style="font-size: 0.875rem; margin-top: 1rem;">
+                                Please check the browser console for details and try refreshing the page.
+                            </p>
+                            <button onclick="location.reload()" style="
+                                margin-top: 1rem;
+                                padding: 0.5rem 1rem;
+                                background: var(--primary-color);
+                                color: white;
+                                border: none;
+                                border-radius: var(--radius-md);
+                                cursor: pointer;
+                            ">
+                                🔄 Refresh Page
+                            </button>
+                        </div>
+                    `;
+                }
+            }
+        });
+
+        // Global error handling
+        window.addEventListener('error', function(event) {
+            console.error('Global error:', event.error);
+        });
+        
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('Unhandled promise rejection:', event.reason);
+        });
+    </script>
+
+    <!-- Fallback for browsers without ES modules support -->
+    <script nomodule>
+        document.getElementById('loading-overlay').innerHTML = `
+            <div style="text-align: center; color: var(--error-color);">
+                <h2>⚠️ Browser Not Supported</h2>
+                <p>This application requires a modern browser with ES6 modules support.</p>
+                <p style="font-size: 0.875rem; margin-top: 1rem;">
+                    Please use Chrome 61+, Firefox 60+, Safari 10.1+, or Edge 16+
+                </p>
+            </div>
+        `;
+    </script>
+</body>
+</html>

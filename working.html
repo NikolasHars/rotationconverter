@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Rotation Converter - Working Hierarchical</title>
+    <link rel="icon" type="image/png" href="rotation-icon.png">
+    <link rel="stylesheet" href="src/css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <img src="rotation-icon.svg" alt="Rotation Icon" class="header-icon" 
+                 onerror="this.onerror=null; this.src='rotation-icon.png';">
+            <h1>3D Rotation Converter - Hierarchical</h1>
+        </header>
+
+        <main class="main-content">
+            <!-- Input Panel -->
+            <section class="input-panel">
+                <h2 class="section-header">Input & Frame Management</h2>
+
+                <!-- Frame Management Section -->
+                <div class="frame-management">
+                    <h3>Reference Frames</h3>
+                    <div class="frame-controls">
+                        <select id="frame-select" class="form-control" onchange="selectFrame(this.value)">
+                            <option value="">Select Frame</option>
+                        </select>
+                        <button onclick="addBasicFrame()" class="btn btn-primary btn-sm">Add Frame</button>
+                        <button onclick="removeFrame()" class="btn btn-danger btn-sm">Remove Frame</button>
+                        <span class="text-muted">Frames: <span id="frame-count">0</span></span>
+                    </div>
+                </div>
+
+                <!-- Hierarchical Frame Management -->
+                <div class="frame-hierarchy-panel" style="margin: 20px 0;">
+                    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+                        <h3 style="margin: 0; color: #323296;">Frame Hierarchy</h3>
+                        <button onclick="toggleHierarchy()" class="btn-secondary">Show/Hide</button>
+                    </div>
+                    <div class="hierarchy-content" id="hierarchy-content" style="padding: 20px; display: block;">
+                        <div class="frame-creation" style="margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px solid #dee2e6;">
+                            <h4 style="margin: 0 0 15px 0; font-size: 14px;">Add Hierarchical Frame</h4>
+                            <div class="form-group" style="margin-bottom: 15px;">
+                                <label for="new-frame-name" style="display: block; margin-bottom: 5px; font-weight: 500;">Frame Name:</label>
+                                <input type="text" id="new-frame-name" placeholder="e.g. phone, camera" style="width: 100%; padding: 8px 12px; border: 1px solid #dee2e6; border-radius: 4px;"/>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 15px;">
+                                <label for="parent-frame-select" style="display: block; margin-bottom: 5px; font-weight: 500;">Parent Frame:</label>
+                                <select id="parent-frame-select" style="width: 100%; padding: 8px 12px; border: 1px solid #dee2e6; border-radius: 4px;">
+                                    <option value="">No Parent (World)</option>
+                                </select>
+                            </div>
+                            <button onclick="addHierarchicalFrame()" class="btn btn-primary">Create Hierarchical Frame</button>
+                        </div>
+                        
+                        <div class="modifier-controls" style="margin-bottom: 25px;">
+                            <h4 style="margin: 0 0 15px 0; font-size: 14px;">Modifier Quaternion</h4>
+                            <div class="quaternion-inputs" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px;">
+                                <input type="number" id="modifier-x" placeholder="x" step="0.001" value="0" style="padding: 6px 8px; font-size: 12px;"/>
+                                <input type="number" id="modifier-y" placeholder="y" step="0.001" value="0" style="padding: 6px 8px; font-size: 12px;"/>
+                                <input type="number" id="modifier-z" placeholder="z" step="0.001" value="0" style="padding: 6px 8px; font-size: 12px;"/>
+                                <input type="number" id="modifier-w" placeholder="w" step="0.001" value="1" style="padding: 6px 8px; font-size: 12px;"/>
+                            </div>
+                            <div class="modifier-buttons" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button onclick="applyModifier()" class="btn btn-primary btn-sm">Apply</button>
+                                <button onclick="premultiplyModifier()" class="btn btn-secondary btn-sm">Pre-multiply</button>
+                                <button onclick="postmultiplyModifier()" class="btn btn-secondary btn-sm">Post-multiply</button>
+                                <button onclick="resetModifier()" class="btn-warning btn-sm">Reset</button>
+                            </div>
+                        </div>
+                        
+                        <div class="hierarchy-tree">
+                            <h4 style="margin: 0 0 15px 0; font-size: 14px;">Frame Tree</h4>
+                            <div id="frame-tree-content" style="background: #f8f9fa; padding: 10px; border-radius: 4px; min-height: 50px;">
+                                <p style="margin: 0; color: #6c757d; font-style: italic;">Frame hierarchy will appear here</p>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 20px; text-align: center;">
+                            <button onclick="createDemoHierarchy()" class="btn btn-success btn-sm">Create Demo: local→phone→cam</button>
+                            <button onclick="clearAllFrames()" class="btn btn-warning btn-sm">Clear All</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Frame Position -->
+                <div class="frame-position">
+                    <h3>Frame Position</h3>
+                    <div class="position-inputs">
+                        <div class="form-group">
+                            <label for="position-x">X</label>
+                            <input type="number" id="position-x" class="form-control position-input" 
+                                   value="0" step="0.1" onchange="updateFramePosition()">
+                        </div>
+                        <div class="form-group">
+                            <label for="position-y">Y</label>
+                            <input type="number" id="position-y" class="form-control position-input" 
+                                   value="0" step="0.1" onchange="updateFramePosition()">
+                        </div>
+                        <div class="form-group">
+                            <label for="position-z">Z</label>
+                            <input type="number" id="position-z" class="form-control position-input" 
+                                   value="0" step="0.1" onchange="updateFramePosition()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rotation Matrix Input -->
+                <div class="input-section highlighted" data-input-type="matrix">
+                    <h3>Rotation Matrix</h3>
+                    <div class="matrix-inputs">
+                        <input type="number" id="m00" class="rotation-input" value="1" step="0.000001" onchange="updateFromMatrix()">
+                        <input type="number" id="m01" class="rotation-input" value="0" step="0.000001" onchange="updateFromMatrix()">
+                        <input type="number" id="m02" class="rotation-input" value="0" step="0.000001" onchange="updateFromMatrix()">
+                        <input type="number" id="m10" class="rotation-input" value="0" step="0.000001" onchange="updateFromMatrix()">
+                        <input type="number" id="m11" class="rotation-input" value="1" step="0.000001" onchange="updateFromMatrix()">
+                        <input type="number" id="m12" class="rotation-input" value="0" step="0.000001" onchange="updateFromMatrix()">
+                        <input type="number" id="m20" class="rotation-input" value="0" step="0.000001" onchange="updateFromMatrix()">
+                        <input type="number" id="m21" class="rotation-input" value="0" step="0.000001" onchange="updateFromMatrix()">
+                        <input type="number" id="m22" class="rotation-input" value="1" step="0.000001" onchange="updateFromMatrix()">
+                    </div>
+                </div>
+
+                <!-- Quaternion Input -->
+                <div class="input-section" data-input-type="quaternion">
+                    <h3>Quaternion</h3>
+                    <div class="vector-inputs with-label">
+                        <span class="input-label">x</span>
+                        <input type="number" id="q0" class="rotation-input" value="0" step="0.000001" onchange="updateFromQuaternion()">
+                        <span class="input-label">y</span>
+                        <input type="number" id="q1" class="rotation-input" value="0" step="0.000001" onchange="updateFromQuaternion()">
+                        <span class="input-label">z</span>
+                        <input type="number" id="q2" class="rotation-input" value="0" step="0.000001" onchange="updateFromQuaternion()">
+                        <span class="input-label">w</span>
+                        <input type="number" id="q3" class="rotation-input" value="1" step="0.000001" onchange="updateFromQuaternion()">
+                    </div>
+                </div>
+
+                <!-- Euler Angles Input -->
+                <div class="input-section" data-input-type="euler">
+                    <h3>Euler Angles (radians)</h3>
+                    <div class="vector-inputs with-label">
+                        <span class="input-label">x</span>
+                        <input type="number" id="euler-x" class="rotation-input" value="0" step="0.000001" onchange="updateFromEuler()">
+                        <span class="input-label">y</span>
+                        <input type="number" id="euler-y" class="rotation-input" value="0" step="0.000001" onchange="updateFromEuler()">
+                        <span class="input-label">z</span>
+                        <input type="number" id="euler-z" class="rotation-input" value="0" step="0.000001" onchange="updateFromEuler()">
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3D Visualization Panel -->
+            <section class="visualization-panel">
+                <h2 class="section-header">3D Visualization</h2>
+                <div id="scene-container" class="scene-container"></div>
+            </section>
+
+            <!-- Output Panel -->
+            <section class="output-panel">
+                <h2 class="section-header">All Rotation Formats</h2>
+
+                <!-- Rotation Matrix Output -->
+                <div class="output-section">
+                    <h3>Rotation Matrix</h3>
+                    <div class="matrix-output" id="matrix-output"></div>
+                </div>
+
+                <!-- Quaternion Output -->
+                <div class="output-section">
+                    <h3>Quaternion</h3>
+                    <div class="vector-output" id="quaternion-output"></div>
+                </div>
+
+                <!-- Euler Angles Output -->
+                <div class="output-section">
+                    <h3>Euler Angles</h3>
+                    <div class="vector-output" id="euler-output"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Three.js -->
+    <script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.147/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.147/examples/jsm/"
+        }
+    }
+    </script>
+    <script src="three-onlymath.min.js"></script>
+    
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        
+        // Wait for Three.js to load before initializing
+        function waitForThree() {
+            if (typeof THREE !== 'undefined' && THREE.WebGLRenderer && THREE.Group) {
+                console.log('✅ Three.js loaded successfully');
+                init();
+            } else {
+                console.log('⏳ Waiting for Three.js to load...');
+                setTimeout(waitForThree, 100);
+            }
+        }
+
+        // Global variables
+        let scene, camera, renderer, controls;
+        let frames = [];
+        let activeFrameId = null;
+        let frameCounter = 0;
+        let isUpdatingInputs = false; // Flag to prevent recursive updates
+
+        // Initialize the application
+        function init() {
+            console.log('🚀 Initializing 3D Rotation Converter...');
+            
+            try {
+                // Get container
+                const container = document.getElementById('scene-container');
+                if (!container) {
+                    console.error('❌ Scene container not found');
+                    return;
+                }
+                
+                const width = container.clientWidth || 800;
+                const height = container.clientHeight || 400;
+                console.log(`📏 Container size: ${width}x${height}`);
+
+                // Renderer
+                renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(width, height);
+                renderer.setClearColor(0xf0f0f0);
+                container.appendChild(renderer.domElement);
+                console.log('✅ Renderer created');
+
+                // Scene
+                scene = new THREE.Scene();
+                scene.up.set(0, 0, 1);
+                console.log('✅ Scene created');
+
+                // Camera
+                const aspectRatio = width / height;
+                const frustumSize = 3;
+                camera = new THREE.OrthographicCamera(
+                    frustumSize * aspectRatio / -2, frustumSize * aspectRatio / 2,
+                    frustumSize / 2, frustumSize / -2,
+                    0.1, 100
+                );
+                camera.position.set(2, 2, 2);
+                camera.up.set(0, 0, 1);
+                camera.lookAt(0, 0, 0);
+                console.log('✅ Camera created');
+
+                // Controls
+                controls = new OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+                controls.enableZoom = true;
+                controls.enablePan = true;
+                controls.enableRotate = true;
+                console.log('✅ Controls added with settings:', {
+                    enableDamping: controls.enableDamping,
+                    enableZoom: controls.enableZoom,
+                    enablePan: controls.enablePan,
+                    enableRotate: controls.enableRotate
+                });
+
+                // Add lights
+                const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+                scene.add(ambientLight);
+
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(5, 5, 5);
+                scene.add(directionalLight);
+                console.log('✅ Lights added');
+
+                // Add grid
+                const gridHelper = new THREE.GridHelper(10, 10);
+                gridHelper.rotateX(Math.PI / 2);
+                scene.add(gridHelper);
+                console.log('✅ Grid added');
+
+                // Add world axes helper (static reference)
+                const axesHelper = new THREE.AxesHelper(2);
+                scene.add(axesHelper);
+                console.log('✅ World axes added');
+
+                // Create rotatable axes group for active frame visualization
+                var axesGroup = new THREE.Group();
+
+                // Define the length of the axes
+                const axisLength = 0.5;
+
+                // Create X Axis Arrow - Red
+                const dirX = new THREE.Vector3(1, 0, 0); // Direction towards positive X
+                const origin = new THREE.Vector3(0, 0, 0); // Origin
+                const colorX = 0xff0000; // Red
+                const arrowHelperX = new THREE.ArrowHelper(dirX, origin, axisLength, colorX);
+                axesGroup.add(arrowHelperX); // Add to group
+
+                // Create Y Axis Arrow - Green
+                const dirY = new THREE.Vector3(0, 1, 0); // Direction towards positive Y
+                const colorY = 0x00ff00; // Green
+                const arrowHelperY = new THREE.ArrowHelper(dirY, origin, axisLength, colorY);
+                axesGroup.add(arrowHelperY); // Add to group
+
+                // Create Z Axis Arrow - Blue
+                const dirZ = new THREE.Vector3(0, 0, 1); // Direction towards positive Z
+                const colorZ = 0x0000ff; // Blue
+                const arrowHelperZ = new THREE.ArrowHelper(dirZ, origin, axisLength, colorZ);
+                axesGroup.add(arrowHelperZ); // Add to group
+
+                // Add the group to the scene
+                window.axesGroup = axesGroup;
+                scene.add(window.axesGroup);
+                console.log('✅ Rotatable axes group added');
+
+                // Create base frame
+                createBaseFrame();
+
+                // Start render loop
+                animate();
+
+                console.log('✅ 3D Rotation Converter initialized successfully');
+                
+            } catch (error) {
+                console.error('❌ Error during initialization:', error);
+            }
+        }
+
+        // Enhanced frame creation with hierarchy support
+        function createReferenceFrame(name, position = {x: 0, y: 0, z: 0}, color = 0x888888, parentFrame = null) {
+            console.log('📍 Creating reference frame:', name || `Frame ${frameCounter + 1}`);
+            
+            try {
+                const frame = {
+                    id: `frame_${frameCounter++}`,
+                    name: name || `Frame ${frameCounter}`,
+                    group: new THREE.Group(),
+                    parentFrame: parentFrame,
+                    children: new Set(),
+                    
+                    // Position and rotation
+                    localPosition: new THREE.Vector3(position.x, position.y, position.z),
+                    localQuaternion: new THREE.Quaternion(),
+                    position: new THREE.Vector3(position.x, position.y, position.z),
+                    quaternion: new THREE.Quaternion(),
+                    
+                    // Modifier quaternion for additional transforms
+                    modifierQuaternion: new THREE.Quaternion(),
+                    
+                    color: color,
+                    axisLength: 0.5
+                };
+
+                // Create visual elements
+                createFrameVisuals(frame);
+                
+                // Add to parent if specified
+                if (parentFrame) {
+                    parentFrame.children.add(frame);
+                    frame.parentFrame = parentFrame;
+                    console.log(`📍 Frame ${frame.name} added as child of ${parentFrame.name}`);
+                }
+                
+                // Add to scene
+                scene.add(frame.group);
+                frames.push(frame);
+                
+                // Update global transform
+                updateFrameTransform(frame);
+                
+                console.log(`✅ Created frame: ${frame.name}${parentFrame ? ` (parent: ${parentFrame.name})` : ''}`);
+                
+                return frame;
+            } catch (error) {
+                console.error('❌ Error creating reference frame:', error);
+                return null;
+            }
+        }
+
+        function createFrameVisuals(frame) {
+            console.log(`🎨 Creating visuals for frame: ${frame.name}`);
+            
+            try {
+                // Clear existing visuals
+                frame.group.clear();
+                
+                const origin = new THREE.Vector3(0, 0, 0);
+                
+                // X Axis Arrow - Red
+                const arrowX = new THREE.ArrowHelper(
+                    new THREE.Vector3(1, 0, 0), 
+                    origin, 
+                    frame.axisLength, 
+                    0xff0000,
+                    frame.axisLength * 0.2,
+                    frame.axisLength * 0.1
+                );
+                frame.group.add(arrowX);
+
+                // Y Axis Arrow - Green
+                const arrowY = new THREE.ArrowHelper(
+                    new THREE.Vector3(0, 1, 0), 
+                    origin, 
+                    frame.axisLength, 
+                    0x00ff00,
+                    frame.axisLength * 0.2,
+                    frame.axisLength * 0.1
+                );
+                frame.group.add(arrowY);
+
+                // Z Axis Arrow - Blue
+                const arrowZ = new THREE.ArrowHelper(
+                    new THREE.Vector3(0, 0, 1), 
+                    origin, 
+                    frame.axisLength, 
+                    0x0000ff,
+                    frame.axisLength * 0.2,
+                    frame.axisLength * 0.1
+                );
+                frame.group.add(arrowZ);
+
+                // Create text label using canvas texture
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = 256;
+                canvas.height = 64;
+                
+                // Clear canvas with white background
+                context.fillStyle = '#ffffff';
+                context.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Add black border
+                context.strokeStyle = '#000000';
+                context.lineWidth = 2;
+                context.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
+                
+                // Add text
+                context.fillStyle = '#000000';
+                context.font = 'bold 24px Arial';
+                context.textAlign = 'center';
+                context.textBaseline = 'middle';
+                context.fillText(frame.name, canvas.width / 2, canvas.height / 2);
+                
+                const texture = new THREE.CanvasTexture(canvas);
+                texture.needsUpdate = true;
+                
+                const material = new THREE.MeshBasicMaterial({ 
+                    map: texture, 
+                    transparent: true,
+                    alphaTest: 0.1,
+                    side: THREE.DoubleSide
+                });
+                
+                const geometry = new THREE.PlaneGeometry(0.6, 0.15);
+                const label = new THREE.Mesh(geometry, material);
+                label.position.set(0, 0, frame.axisLength + 0.3);
+                
+                frame.group.add(label);
+                
+                console.log(`✅ Frame visuals created for: ${frame.name}`);
+                
+            } catch (error) {
+                console.error(`❌ Error creating visuals for frame ${frame.name}:`, error);
+            }
+        }
+
+        function updateFrameTransform(frame) {
+            if (!frame) return;
+            
+            console.log(`🔄 Updating transform for frame: ${frame.name}`);
+            
+            // Calculate final quaternion with modifier
+            const finalQuaternion = new THREE.Quaternion();
+            if (frame.modifierQuaternion && (frame.modifierQuaternion.x !== 0 || frame.modifierQuaternion.y !== 0 || frame.modifierQuaternion.z !== 0 || frame.modifierQuaternion.w !== 1)) {
+                finalQuaternion.multiplyQuaternions(frame.localQuaternion, frame.modifierQuaternion);
+            } else {
+                finalQuaternion.copy(frame.localQuaternion);
+            }
+            
+            // Update global transform based on parent
+            if (frame.parentFrame) {
+                // Child frame: combine with parent transform
+                frame.position.copy(frame.localPosition);
+                frame.position.applyQuaternion(frame.parentFrame.quaternion);
+                frame.position.add(frame.parentFrame.position);
+                
+                frame.quaternion.multiplyQuaternions(frame.parentFrame.quaternion, finalQuaternion);
+            } else {
+                // Root frame: use local transform directly
+                frame.position.copy(frame.localPosition);
+                frame.quaternion.copy(finalQuaternion);
+            }
+            
+            console.log(`📍 Frame ${frame.name} position: [${frame.position.x.toFixed(3)}, ${frame.position.y.toFixed(3)}, ${frame.position.z.toFixed(3)}]`);
+            console.log(`📐 Frame ${frame.name} quaternion: [${frame.quaternion.x.toFixed(3)}, ${frame.quaternion.y.toFixed(3)}, ${frame.quaternion.z.toFixed(3)}, ${frame.quaternion.w.toFixed(3)}]`);
+            
+            // Apply to Three.js group - This is the critical part!
+            frame.group.position.copy(frame.position);
+            frame.group.quaternion.copy(frame.quaternion);
+            
+            console.log(`✅ Applied transform to Three.js group for frame: ${frame.name}`);
+            
+            // Update all children
+            frame.children.forEach(child => {
+                updateFrameTransform(child);
+            });
+        }
+
+        function createBaseFrame() {
+            console.log('🌍 Creating base frame...');
+            try {
+                const baseFrame = createReferenceFrame('World', {x: 0, y: 0, z: 0}, 0x333333);
+                baseFrame.axisLength = 1.0;
+                createFrameVisuals(baseFrame);
+                activeFrameId = baseFrame.id;
+                updateFrameList();
+                updateParentFrameSelect();
+                updateFrameTree();
+                updateInputsFromActiveFrame();
+                console.log('✅ Base frame created successfully');
+            } catch (error) {
+                console.error('❌ Error creating base frame:', error);
+            }
+        }
+
+        function getActiveFrame() {
+            return frames.find(f => f.id === activeFrameId);
+        }
+
+        function getFrame(id) {
+            return frames.find(f => f.id === id);
+        }
+
+        // Frame management functions
+        function addBasicFrame() {
+            console.log('➕ Adding basic frame...');
+            try {
+                const frame = createReferenceFrame();
+                activeFrameId = frame.id;
+                updateFrameList();
+                updateParentFrameSelect();
+                updateFrameTree();
+                updateInputsFromActiveFrame();
+                console.log(`✅ Basic frame added: ${frame.name}`);
+                
+                // Force a render to make sure the new frame is visible
+                if (renderer && scene && camera) {
+                    renderer.render(scene, camera);
+                }
+            } catch (error) {
+                console.error('❌ Error adding basic frame:', error);
+            }
+        }
+
+        function addHierarchicalFrame() {
+            const nameInput = document.getElementById('new-frame-name');
+            const parentSelect = document.getElementById('parent-frame-select');
+            
+            const name = nameInput.value.trim() || null;
+            const parentId = parentSelect.value || null;
+            const parentFrame = parentId ? getFrame(parentId) : null;
+            
+            const frame = createReferenceFrame(name, {x: 0, y: 0, z: 0}, null, parentFrame);
+            activeFrameId = frame.id;
+            
+            nameInput.value = '';
+            updateFrameList();
+            updateParentFrameSelect();
+            updateFrameTree();
+            updateInputsFromActiveFrame();
+            
+            console.log(`✅ Added hierarchical frame: ${frame.name}`);
+        }
+
+        function removeFrame() {
+            if (!activeFrameId) return;
+            
+            const frameIndex = frames.findIndex(f => f.id === activeFrameId);
+            if (frameIndex === -1) return;
+            
+            const frame = frames[frameIndex];
+            
+            // Don't remove the first frame (base frame)
+            if (frameIndex === 0) {
+                console.log('⚠️ Cannot remove base frame');
+                return;
+            }
+            
+            // Remove from parent's children if it has a parent
+            if (frame.parentFrame) {
+                frame.parentFrame.children.delete(frame);
+            }
+            
+            // Reparent children to this frame's parent or null
+            frame.children.forEach(child => {
+                child.parentFrame = frame.parentFrame;
+                if (frame.parentFrame) {
+                    frame.parentFrame.children.add(child);
+                }
+                updateFrameTransform(child);
+            });
+            
+            // Remove from scene and frames array
+            scene.remove(frame.group);
+            frames.splice(frameIndex, 1);
+            
+            // Select a different frame
+            activeFrameId = frames.length > 0 ? frames[0].id : null;
+            
+            updateFrameList();
+            updateParentFrameSelect();
+            updateFrameTree();
+            updateInputsFromActiveFrame();
+            
+            console.log(`🗑️ Removed frame: ${frame.name}`);
+        }
+
+        function selectFrame(frameId) {
+            activeFrameId = frameId;
+            updateInputsFromActiveFrame();
+            console.log(`🎯 Selected frame: ${frameId}`);
+        }
+
+        // Modifier functions
+        function applyModifier() {
+            const activeFrame = getActiveFrame();
+            if (!activeFrame) return;
+            
+            const x = parseFloat(document.getElementById('modifier-x').value) || 0;
+            const y = parseFloat(document.getElementById('modifier-y').value) || 0;
+            const z = parseFloat(document.getElementById('modifier-z').value) || 0;
+            const w = parseFloat(document.getElementById('modifier-w').value) || 1;
+            
+            activeFrame.modifierQuaternion.set(x, y, z, w);
+            activeFrame.modifierQuaternion.normalize();
+            
+            updateFrameTransform(activeFrame);
+            updateInputsFromActiveFrame();
+            
+            console.log(`🔄 Applied modifier to ${activeFrame.name}`);
+        }
+
+        function premultiplyModifier() {
+            const activeFrame = getActiveFrame();
+            if (!activeFrame) return;
+            
+            const x = parseFloat(document.getElementById('modifier-x').value) || 0;
+            const y = parseFloat(document.getElementById('modifier-y').value) || 0;
+            const z = parseFloat(document.getElementById('modifier-z').value) || 0;
+            const w = parseFloat(document.getElementById('modifier-w').value) || 1;
+            
+            const modifier = new THREE.Quaternion(x, y, z, w);
+            modifier.normalize();
+            
+            activeFrame.modifierQuaternion.premultiply(modifier);
+            
+            updateFrameTransform(activeFrame);
+            updateInputsFromActiveFrame();
+            
+            console.log(`🔄 Pre-multiplied modifier to ${activeFrame.name}`);
+        }
+
+        function postmultiplyModifier() {
+            const activeFrame = getActiveFrame();
+            if (!activeFrame) return;
+            
+            const x = parseFloat(document.getElementById('modifier-x').value) || 0;
+            const y = parseFloat(document.getElementById('modifier-y').value) || 0;
+            const z = parseFloat(document.getElementById('modifier-z').value) || 0;
+            const w = parseFloat(document.getElementById('modifier-w').value) || 1;
+            
+            const modifier = new THREE.Quaternion(x, y, z, w);
+            modifier.normalize();
+            
+            activeFrame.modifierQuaternion.multiply(modifier);
+            
+            updateFrameTransform(activeFrame);
+            updateInputsFromActiveFrame();
+            
+            console.log(`🔄 Post-multiplied modifier to ${activeFrame.name}`);
+        }
+
+        function resetModifier() {
+            const activeFrame = getActiveFrame();
+            if (!activeFrame) return;
+            
+            activeFrame.modifierQuaternion.identity();
+            
+            // Reset input fields
+            document.getElementById('modifier-x').value = '0';
+            document.getElementById('modifier-y').value = '0';
+            document.getElementById('modifier-z').value = '0';
+            document.getElementById('modifier-w').value = '1';
+            
+            updateFrameTransform(activeFrame);
+            updateInputsFromActiveFrame();
+            
+            console.log(`🔄 Reset modifier for ${activeFrame.name}`);
+        }
+
+        // UI update functions
+        function updateFrameList() {
+            const select = document.getElementById('frame-select');
+            const countSpan = document.getElementById('frame-count');
+            
+            select.innerHTML = '<option value="">Select Frame</option>';
+            frames.forEach(frame => {
+                const option = document.createElement('option');
+                option.value = frame.id;
+                option.textContent = frame.name;
+                if (frame.id === activeFrameId) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+            
+            countSpan.textContent = frames.length;
+        }
+
+        function updateParentFrameSelect() {
+            const select = document.getElementById('parent-frame-select');
+            select.innerHTML = '<option value="">No Parent (World)</option>';
+            
+            frames.forEach(frame => {
+                const option = document.createElement('option');
+                option.value = frame.id;
+                option.textContent = frame.name;
+                select.appendChild(option);
+            });
+        }
+
+        function updateFrameTree() {
+            const container = document.getElementById('frame-tree-content');
+            container.innerHTML = '';
+            
+            if (frames.length === 0) {
+                container.innerHTML = '<p style="margin: 0; color: #6c757d; font-style: italic;">No frames created</p>';
+                return;
+            }
+            
+            // Show hierarchy
+            frames.forEach(frame => {
+                if (!frame.parentFrame) {  // Root frames
+                    addFrameToTree(container, frame, 0);
+                }
+            });
+        }
+
+        function addFrameToTree(container, frame, level) {
+            const div = document.createElement('div');
+            div.style.marginLeft = `${level * 20}px`;
+            div.style.padding = '5px';
+            div.style.borderLeft = level > 0 ? '2px solid #dee2e6' : 'none';
+            
+            const isActive = frame.id === activeFrameId;
+            div.innerHTML = `
+                <span style="color: ${isActive ? '#007bff' : '#333'}; font-weight: ${isActive ? 'bold' : 'normal'};">
+                    ${frame.children.size > 0 ? '📁' : '📄'} ${frame.name}
+                    ${frame.parentFrame ? ' (child)' : ' (root)'}
+                </span>
+            `;
+            
+            div.style.cursor = 'pointer';
+            div.onclick = () => selectFrame(frame.id);
+            
+            container.appendChild(div);
+            
+            // Add children
+            frame.children.forEach(child => {
+                addFrameToTree(container, child, level + 1);
+            });
+        }
+
+        function updateInputsFromActiveFrame() {
+            const activeFrame = getActiveFrame();
+            if (!activeFrame || isUpdatingInputs) return;
+            
+            isUpdatingInputs = true;
+            
+            // Update position inputs
+            document.getElementById('position-x').value = activeFrame.localPosition.x.toFixed(3);
+            document.getElementById('position-y').value = activeFrame.localPosition.y.toFixed(3);
+            document.getElementById('position-z').value = activeFrame.localPosition.z.toFixed(3);
+            
+            // Update quaternion inputs (using local quaternion)
+            const q = activeFrame.localQuaternion;
+            document.getElementById('q0').value = q.x.toFixed(6);
+            document.getElementById('q1').value = q.y.toFixed(6);
+            document.getElementById('q2').value = q.z.toFixed(6);
+            document.getElementById('q3').value = q.w.toFixed(6);
+            
+            // Update matrix inputs
+            const matrix = new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(q));
+            const m = matrix.elements;
+            document.getElementById('m00').value = m[0].toFixed(6);
+            document.getElementById('m01').value = m[3].toFixed(6);
+            document.getElementById('m02').value = m[6].toFixed(6);
+            document.getElementById('m10').value = m[1].toFixed(6);
+            document.getElementById('m11').value = m[4].toFixed(6);
+            document.getElementById('m12').value = m[7].toFixed(6);
+            document.getElementById('m20').value = m[2].toFixed(6);
+            document.getElementById('m21').value = m[5].toFixed(6);
+            document.getElementById('m22').value = m[8].toFixed(6);
+            
+            // Update Euler inputs
+            const euler = new THREE.Euler().setFromQuaternion(q, 'XYZ');
+            document.getElementById('euler-x').value = euler.x.toFixed(6);
+            document.getElementById('euler-y').value = euler.y.toFixed(6);
+            document.getElementById('euler-z').value = euler.z.toFixed(6);
+            
+            // Update the main axes group to show active frame's rotation
+            if (window.axesGroup) {
+                window.axesGroup.quaternion.copy(activeFrame.localQuaternion);
+            }
+            
+            isUpdatingInputs = false;
+        }
+
+        // Function to update main axes visualization
+        function updateMainAxesVisualization() {
+            const activeFrame = getActiveFrame();
+            if (activeFrame && window.axesGroup) {
+                window.axesGroup.quaternion.copy(activeFrame.localQuaternion);
+                console.log(`🎯 Updated main axes to show frame ${activeFrame.name} rotation`);
+            }
+        }
+
+        // Input handling functions
+        function updateFramePosition() {
+            const activeFrame = getActiveFrame();
+            if (!activeFrame || isUpdatingInputs) return;
+
+            const x = parseFloat(document.getElementById('position-x').value) || 0;
+            const y = parseFloat(document.getElementById('position-y').value) || 0;
+            const z = parseFloat(document.getElementById('position-z').value) || 0;
+
+            activeFrame.localPosition.set(x, y, z);
+            updateFrameTransform(activeFrame);
+            
+            // Force a render to ensure visual update
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+                console.log('🎨 Forced render after position update');
+            }
+        }
+
+        function updateFromMatrix() {
+            const activeFrame = getActiveFrame();
+            if (!activeFrame) return;
+
+            const elements = [
+                parseFloat(document.getElementById('m00').value) || 0,
+                parseFloat(document.getElementById('m10').value) || 0,
+                parseFloat(document.getElementById('m20').value) || 0,
+                parseFloat(document.getElementById('m01').value) || 0,
+                parseFloat(document.getElementById('m11').value) || 0,
+                parseFloat(document.getElementById('m21').value) || 0,
+                parseFloat(document.getElementById('m02').value) || 0,
+                parseFloat(document.getElementById('m12').value) || 0,
+                parseFloat(document.getElementById('m22').value) || 0
+            ];
+
+            const matrix = new THREE.Matrix4();
+            matrix.set(
+                elements[0], elements[1], elements[2], 0,
+                elements[3], elements[4], elements[5], 0,
+                elements[6], elements[7], elements[8], 0,
+                0, 0, 0, 1
+            );
+
+            activeFrame.localQuaternion.setFromRotationMatrix(matrix);
+            updateFrameTransform(activeFrame);
+            updateMainAxesVisualization();
+            updateInputsFromActiveFrame();
+        }
+
+        function updateFromQuaternion() {
+            const activeFrame = getActiveFrame();
+            if (!activeFrame || isUpdatingInputs) return;
+
+            const x = parseFloat(document.getElementById('q0').value) || 0;
+            const y = parseFloat(document.getElementById('q1').value) || 0;
+            const z = parseFloat(document.getElementById('q2').value) || 0;
+            const w = parseFloat(document.getElementById('q3').value) || 1;
+
+            console.log(`🔄 Updating quaternion for frame ${activeFrame.name}: [${x}, ${y}, ${z}, ${w}]`);
+            activeFrame.localQuaternion.set(x, y, z, w);
+            activeFrame.localQuaternion.normalize();
+            console.log(`📐 Normalized quaternion: [${activeFrame.localQuaternion.x}, ${activeFrame.localQuaternion.y}, ${activeFrame.localQuaternion.z}, ${activeFrame.localQuaternion.w}]`);
+            updateFrameTransform(activeFrame);
+            updateMainAxesVisualization();
+            
+            // Force a render to ensure visual update
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+                console.log('🎨 Forced render after quaternion update');
+            }
+        }
+
+        function updateFromEuler() {
+            const activeFrame = getActiveFrame();
+            if (!activeFrame || isUpdatingInputs) return;
+
+            const x = parseFloat(document.getElementById('euler-x').value) || 0;
+            const y = parseFloat(document.getElementById('euler-y').value) || 0;
+            const z = parseFloat(document.getElementById('euler-z').value) || 0;
+
+            const euler = new THREE.Euler(x, y, z, 'XYZ');
+            activeFrame.localQuaternion.setFromEuler(euler);
+            updateFrameTransform(activeFrame);
+            updateMainAxesVisualization();
+            
+            // Force a render to ensure visual update
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+                console.log('🎨 Forced render after Euler update');
+            }
+        }
+
+        // Utility functions
+        function toggleHierarchy() {
+            const content = document.getElementById('hierarchy-content');
+            content.style.display = content.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function createDemoHierarchy() {
+            console.log('🎬 Creating demo hierarchy...');
+            
+            // Clear existing frames except base
+            while (frames.length > 1) {
+                activeFrameId = frames[frames.length - 1].id;
+                removeFrame();
+            }
+            
+            // Create local frame
+            const localFrame = createReferenceFrame('local', {x: 0, y: 0, z: 0});
+            
+            // Create phone frame as child of local
+            const phoneFrame = createReferenceFrame('phone', {x: 2, y: 0, z: 0}, 0x4ecdc4, localFrame);
+            
+            // Create cam frame as child of phone
+            const camFrame = createReferenceFrame('cam', {x: 0, y: 1, z: 0.5}, 0xff6b6b, phoneFrame);
+            
+            activeFrameId = localFrame.id;
+            updateFrameList();
+            updateParentFrameSelect();
+            updateFrameTree();
+            updateInputsFromActiveFrame();
+            
+            console.log('✅ Demo hierarchy created: local → phone → cam');
+        }
+
+        function clearAllFrames() {
+            // Keep only the base frame
+            while (frames.length > 1) {
+                const frame = frames[frames.length - 1];
+                scene.remove(frame.group);
+                frames.pop();
+            }
+            
+            activeFrameId = frames.length > 0 ? frames[0].id : null;
+            updateFrameList();
+            updateParentFrameSelect();
+            updateFrameTree();
+            updateInputsFromActiveFrame();
+            
+            console.log('🧹 Cleared all frames except base');
+        }
+
+        // Render loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Update controls for mouse interaction
+            if (controls) {
+                controls.update();
+            }
+            
+            // Render the scene
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
+        }
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+            const container = document.getElementById('scene-container');
+            if (container && renderer && camera) {
+                const width = container.clientWidth;
+                const height = container.clientHeight;
+                
+                camera.left = -5 * (width / height);
+                camera.right = 5 * (width / height);
+                camera.updateProjectionMatrix();
+                
+                renderer.setSize(width, height);
+            }
+        });
+
+        // Make functions globally available
+        window.addBasicFrame = addBasicFrame;
+        window.addHierarchicalFrame = addHierarchicalFrame;
+        window.removeFrame = removeFrame;
+        window.selectFrame = selectFrame;
+        window.applyModifier = applyModifier;
+        window.premultiplyModifier = premultiplyModifier;
+        window.postmultiplyModifier = postmultiplyModifier;
+        window.resetModifier = resetModifier;
+        window.updateFramePosition = updateFramePosition;
+        window.updateFromMatrix = updateFromMatrix;
+        window.updateFromQuaternion = updateFromQuaternion;
+        window.updateFromEuler = updateFromEuler;
+        window.toggleHierarchy = toggleHierarchy;
+        window.createDemoHierarchy = createDemoHierarchy;
+        window.clearAllFrames = clearAllFrames;
+
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('📄 DOM loaded, waiting for Three.js...');
+            waitForThree();
+        });
+    </script>
+</body>
+</html>

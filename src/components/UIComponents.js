@@ -1,0 +1,203 @@
+/**
+ * UI Components for 3D Rotation Converter
+ */
+
+export function createInputPanel() {
+    return `
+        <div class="panel">
+            <div class="panel-header">
+                <h2 class="panel-title">Input Controls</h2>
+            </div>
+            
+            <!-- Frame Management -->
+            <div class="frame-management">
+                <h3>Reference Frames</h3>
+                
+                <div class="frame-controls">
+                    <button class="btn btn-primary btn-sm" onclick="rotationConverter.addFrame(prompt('Frame name:') || 'New Frame')">
+                        ➕ Add Frame
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="rotationConverter.createDemoHierarchy()">
+                        🎯 Demo Hierarchy
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="rotationConverter.clearAllFrames()">
+                        🧹 Clear All
+                    </button>
+                </div>
+                
+                <div class="frame-controls">
+                    <input type="file" id="import-file" accept=".json" style="display: none;" onchange="handleImport(event)">
+                    <button class="btn btn-secondary btn-sm" onclick="document.getElementById('import-file').click()">
+                        📂 Import JSON
+                    </button>
+                    <button class="btn btn-success btn-sm" onclick="downloadFrameHierarchy()">
+                        💾 Export JSON
+                    </button>
+                </div>
+                
+                <div class="frame-hierarchy">
+                    <div id="frame-list" class="frame-tree">
+                        <!-- Frame tree will be populated here -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Position Controls -->
+            <div class="input-section">
+                <h3>Position</h3>
+                <div class="vector-inputs position with-label">
+                    <span class="input-label">X</span>
+                    <input type="number" id="position-x" class="form-control" 
+                           value="0" step="0.1" data-tooltip="X position in parent frame">
+                    <span class="input-label">Y</span>
+                    <input type="number" id="position-y" class="form-control" 
+                           value="0" step="0.1" data-tooltip="Y position in parent frame">
+                    <span class="input-label">Z</span>
+                    <input type="number" id="position-z" class="form-control" 
+                           value="0" step="0.1" data-tooltip="Z position in parent frame">
+                </div>
+            </div>
+
+            <!-- Rotation Matrix Input -->
+            <div class="input-section highlighted" data-input-type="matrix">
+                <h3>Rotation Matrix</h3>
+                <div class="matrix-inputs">
+                    <input type="number" id="m00" class="rotation-input" value="1" step="0.000001" data-tooltip="Matrix element [0,0]">
+                    <input type="number" id="m01" class="rotation-input" value="0" step="0.000001" data-tooltip="Matrix element [0,1]">
+                    <input type="number" id="m02" class="rotation-input" value="0" step="0.000001" data-tooltip="Matrix element [0,2]">
+                    <input type="number" id="m10" class="rotation-input" value="0" step="0.000001" data-tooltip="Matrix element [1,0]">
+                    <input type="number" id="m11" class="rotation-input" value="1" step="0.000001" data-tooltip="Matrix element [1,1]">
+                    <input type="number" id="m12" class="rotation-input" value="0" step="0.000001" data-tooltip="Matrix element [1,2]">
+                    <input type="number" id="m20" class="rotation-input" value="0" step="0.000001" data-tooltip="Matrix element [2,0]">
+                    <input type="number" id="m21" class="rotation-input" value="0" step="0.000001" data-tooltip="Matrix element [2,1]">
+                    <input type="number" id="m22" class="rotation-input" value="1" step="0.000001" data-tooltip="Matrix element [2,2]">
+                </div>
+            </div>
+
+            <!-- Quaternion Input -->
+            <div class="input-section" data-input-type="quaternion">
+                <h3>Quaternion</h3>
+                <div class="vector-inputs with-label">
+                    <span class="input-label">x</span>
+                    <input type="number" id="q0" class="rotation-input" value="0" step="0.000001" data-tooltip="Quaternion x component">
+                    <span class="input-label">y</span>
+                    <input type="number" id="q1" class="rotation-input" value="0" step="0.000001" data-tooltip="Quaternion y component">
+                    <span class="input-label">z</span>
+                    <input type="number" id="q2" class="rotation-input" value="0" step="0.000001" data-tooltip="Quaternion z component">
+                    <span class="input-label">w</span>
+                    <input type="number" id="q3" class="rotation-input" value="1" step="0.000001" data-tooltip="Quaternion w component (real part)">
+                </div>
+            </div>
+
+            <!-- Euler Angles Input -->
+            <div class="input-section" data-input-type="euler">
+                <h3>Euler Angles (radians)</h3>
+                <div class="vector-inputs with-label">
+                    <span class="input-label">x</span>
+                    <input type="number" id="euler-x" class="rotation-input" value="0" step="0.000001" data-tooltip="Rotation around X-axis">
+                    <span class="input-label">y</span>
+                    <input type="number" id="euler-y" class="rotation-input" value="0" step="0.000001" data-tooltip="Rotation around Y-axis">
+                    <span class="input-label">z</span>
+                    <input type="number" id="euler-z" class="rotation-input" value="0" step="0.000001" data-tooltip="Rotation around Z-axis">
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+export function createVisualizationPanel() {
+    return `
+        <div class="panel">
+            <div class="panel-header">
+                <h2 class="panel-title">3D Visualization</h2>
+                <div class="visualization-controls">
+                    <button class="btn btn-secondary btn-sm" onclick="rotationConverter.resetCamera()" data-tooltip="Reset camera view">
+                        🎥 Reset View
+                    </button>
+                </div>
+            </div>
+            <div id="scene-container" class="scene-container"></div>
+            
+            <div class="visualization-info">
+                <p><strong>Controls:</strong></p>
+                <ul>
+                    <li>🖱️ Left click + drag: Rotate view</li>
+                    <li>🖱️ Right click + drag: Pan view</li>
+                    <li>⚙️ Scroll: Zoom in/out</li>
+                </ul>
+                <p><strong>Colors:</strong></p>
+                <ul>
+                    <li>🔴 Red: X-axis</li>
+                    <li>🟢 Green: Y-axis</li>
+                    <li>🔵 Blue: Z-axis</li>
+                </ul>
+            </div>
+        </div>
+    `;
+}
+
+export function createOutputPanel() {
+    return `
+        <div class="panel">
+            <div class="panel-header">
+                <h2 class="panel-title">Output Formats</h2>
+            </div>
+
+            <!-- Rotation Matrix Output -->
+            <div class="output-section">
+                <h3>Rotation Matrix</h3>
+                <div class="matrix-output" id="matrix-output">
+[1.000000, 0.000000, 0.000000]
+[0.000000, 1.000000, 0.000000]
+[0.000000, 0.000000, 1.000000]
+                </div>
+            </div>
+
+            <!-- Quaternion Output -->
+            <div class="output-section">
+                <h3>Quaternion [x, y, z, w]</h3>
+                <div class="vector-output" id="quaternion-output">
+[0.000000, 0.000000, 0.000000, 1.000000]
+                </div>
+            </div>
+
+            <!-- Euler Angles Output -->
+            <div class="output-section">
+                <h3>Euler Angles [x, y, z] (radians)</h3>
+                <div class="vector-output" id="euler-output">
+[0.000000, 0.000000, 0.000000]
+                </div>
+            </div>
+            
+            <!-- World Transform Output -->
+            <div class="output-section">
+                <h3>World Transform</h3>
+                <div class="form-group">
+                    <label>Position</label>
+                    <div class="vector-output" id="world-position-output">
+[0.000000, 0.000000, 0.000000]
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Quaternion</label>
+                    <div class="vector-output" id="world-quaternion-output">
+[0.000000, 0.000000, 0.000000, 1.000000]
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Export Options -->
+            <div class="output-section">
+                <h3>Export</h3>
+                <div class="frame-controls">
+                    <button class="btn btn-primary btn-sm" onclick="rotationConverter.exportAsJSON()" data-tooltip="Export all frames as JSON">
+                        📄 Export JSON
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="rotationConverter.exportAsCSV()" data-tooltip="Export transforms as CSV">
+                        📊 Export CSV
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
