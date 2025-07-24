@@ -1648,6 +1648,27 @@ export class RotationConverter {
         } else {
             alert('Currently only GLTF/GLB files are supported. Please use a .glb or .gltf file.');
         }
+    }
+
+    loadColmapFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const frame = this.getActiveFrame();
+        if (!frame) return;
+        
+        console.log(`🗂️ Loading COLMAP file: ${file.name}`);
+        
+        // Remove existing object
+        this.removeFrameObject();
+        
+        const fileName = file.name.toLowerCase();
+        
+        if (fileName.includes('points3d') || fileName.endsWith('.txt') || fileName.endsWith('.bin')) {
+            this.loadColmapModel(file, frame);
+        } else {
+            alert('Please select a COLMAP points3D.txt or points3D.bin file.');
+        }
         
         // Clear the file input
         event.target.value = '';
@@ -1706,6 +1727,237 @@ export class RotationConverter {
         };
         
         reader.readAsArrayBuffer(file);
+    }
+
+    async loadColmapModel(file, frame) {
+        try {
+            let points3D = [];
+            
+            // Detect file format and parse accordingly
+            if (file.name.includes('points3D.txt') || file.name.endsWith('.txt')) {
+                const text = await file.text();
+                points3D = this.parseColmapTextPoints(text);
+            } else if (file.name.includes('points3D.bin') || file.name.endsWith('.bin')) {
+                const arrayBuffer = await file.arrayBuffer();
+                points3D = this.parseColmapBinaryPoints(arrayBuffer);
+            } else {
+                // Try to auto-detect format by reading first few bytes
+                const arrayBuffer = await file.arrayBuffer();
+                const firstBytes = new Uint8Array(arrayBuffer.slice(0, 100));
+                const firstBytesStr = String.fromCharCode.apply(null, firstBytes);
+                
+                if (firstBytesStr.includes('# 3D point list') || firstBytesStr.includes('#')) {
+                    // Looks like text format
+                    const text = new TextDecoder().decode(arrayBuffer);
+                    points3D = this.parseColmapTextPoints(text);
+                } else {
+                    // Assume binary format
+                    points3D = this.parseColmapBinaryPoints(arrayBuffer);
+                }
+            }
+            
+            if (points3D.length === 0) {
+                alert('No valid 3D points found in the file. Please check the format.');
+                return;
+            }
+            
+            // Create point cloud
+            const pointCloud = this.createPointCloud(points3D, frame);
+            
+            // Apply current arrow scale
+            pointCloud.scale.setScalar(frame.arrowScale || 1.0);
+            
+            // Add to frame
+            frame.group.add(pointCloud);
+            frame.attachedObject = pointCloud;
+            
+            console.log(`🗂️ Added ${points3D.length} COLMAP points to frame ${frame.name}`);
+            
+        } catch (error) {
+            console.error('Error loading COLMAP model:', error);
+            alert('Error loading COLMAP model. Please check the file format.');
+        }
+    }
+
+    parseColmapTextPoints(text) {
+        const lines = text.split('\n');
+        const points = [];
+        
+        for (let line of lines) {
+            line = line.trim();
+            
+            // Skip comments and empty lines
+            if (line.startsWith('#') || line.length === 0) {
+                continue;
+            }
+            
+            // Parse point line: POINT3D_ID X Y Z R G B ERROR TRACK[] as (IMAGE_ID, POINT2D_IDX)
+            const parts = line.split(/\s+/);
+            if (parts.length >= 7) {
+                const point = {
+                    id: parseInt(parts[0]),
+                    x: parseFloat(parts[1]),
+                    y: parseFloat(parts[2]),
+                    z: parseFloat(parts[3]),
+                    r: parseInt(parts[4]) / 255.0,
+                    g: parseInt(parts[5]) / 255.0,
+                    b: parseInt(parts[6]) / 255.0,
+                    error: parseFloat(parts[7]) || 0
+                };
+                
+                // Only include points with reasonable coordinates
+                if (isFinite(point.x) && isFinite(point.y) && isFinite(point.z)) {
+                    points.push(point);
+                }
+            }
+        }
+        
+        return points;
+    }
+
+    parseColmapBinaryPoints(arrayBuffer) {
+        const points = [];
+        const dataView = new DataView(arrayBuffer);
+        let offset = 0;
+        
+        try {
+            // Read number of points (uint64, but we'll treat as uint32 for JavaScript)
+            const numPoints = dataView.getUint32(offset, true); // little-endian
+            offset += 8; // Skip 8 bytes for uint64
+            
+            console.log(`📊 Reading ${numPoints} points from binary COLMAP file`);
+            
+            for (let i = 0; i < numPoints; i++) {
+                if (offset + 43 > arrayBuffer.byteLength) {
+                    console.warn(`⚠️ Unexpected end of file at point ${i}`);
+                    break;
+                }
+                
+                // Read point data according to COLMAP binary format
+                const pointId = dataView.getUint32(offset, true); // POINT3D_ID (uint64, read as uint32)
+                offset += 8; // Skip 8 bytes for uint64
+                
+                const x = dataView.getFloat64(offset, true); // X coordinate
+                offset += 8;
+                const y = dataView.getFloat64(offset, true); // Y coordinate  
+                offset += 8;
+                const z = dataView.getFloat64(offset, true); // Z coordinate
+                offset += 8;
+                
+                const r = dataView.getUint8(offset); // Red
+                offset += 1;
+                const g = dataView.getUint8(offset); // Green
+                offset += 1;
+                const b = dataView.getUint8(offset); // Blue
+                offset += 1;
+                
+                const error = dataView.getFloat64(offset, true); // Error
+                offset += 8;
+                
+                // Read track length
+                const trackLength = dataView.getUint32(offset, true); // TRACK length (uint64, read as uint32)
+                offset += 8;
+                
+                // Skip track data (each track element is 2 * uint32 = 8 bytes)
+                offset += trackLength * 8;
+                
+                // Create point object
+                const point = {
+                    id: pointId,
+                    x: x,
+                    y: y,
+                    z: z,
+                    r: r / 255.0,
+                    g: g / 255.0,
+                    b: b / 255.0,
+                    error: error
+                };
+                
+                // Only include points with reasonable coordinates
+                if (isFinite(point.x) && isFinite(point.y) && isFinite(point.z)) {
+                    points.push(point);
+                }
+                
+                // Progress logging for large files
+                if (i > 0 && i % 10000 === 0) {
+                    console.log(`📊 Processed ${i}/${numPoints} points...`);
+                }
+            }
+            
+            console.log(`✅ Successfully parsed ${points.length} points from binary COLMAP file`);
+            
+        } catch (error) {
+            console.error('Error parsing binary COLMAP file:', error);
+            throw new Error('Invalid COLMAP binary file format');
+        }
+        
+        return points;
+    }
+
+    createPointCloud(points, frame) {
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(points.length * 3);
+        const colors = new Float32Array(points.length * 3);
+        
+        // Calculate bounds for auto-scaling
+        let minX = Infinity, minY = Infinity, minZ = Infinity;
+        let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+        
+        for (let i = 0; i < points.length; i++) {
+            const point = points[i];
+            
+            // Positions
+            positions[i * 3] = point.x;
+            positions[i * 3 + 1] = point.y;
+            positions[i * 3 + 2] = point.z;
+            
+            // Colors
+            colors[i * 3] = point.r;
+            colors[i * 3 + 1] = point.g;
+            colors[i * 3 + 2] = point.b;
+            
+            // Update bounds
+            minX = Math.min(minX, point.x);
+            minY = Math.min(minY, point.y);
+            minZ = Math.min(minZ, point.z);
+            maxX = Math.max(maxX, point.x);
+            maxY = Math.max(maxY, point.y);
+            maxZ = Math.max(maxZ, point.z);
+        }
+        
+        // Center and scale the point cloud
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        const centerZ = (minZ + maxZ) / 2;
+        
+        const sizeX = maxX - minX;
+        const sizeY = maxY - minY;
+        const sizeZ = maxZ - minZ;
+        const maxSize = Math.max(sizeX, sizeY, sizeZ);
+        
+        // Scale to fit within a reasonable size (e.g., 4 units)
+        const scale = maxSize > 0 ? 4.0 / maxSize : 1.0;
+        
+        for (let i = 0; i < points.length; i++) {
+            positions[i * 3] = (positions[i * 3] - centerX) * scale;
+            positions[i * 3 + 1] = (positions[i * 3 + 1] - centerY) * scale;
+            positions[i * 3 + 2] = (positions[i * 3 + 2] - centerZ) * scale;
+        }
+        
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        
+        // Create point cloud material
+        const material = new THREE.PointsMaterial({
+            size: 0.02,
+            vertexColors: true,
+            sizeAttenuation: true
+        });
+        
+        const pointCloud = new THREE.Points(geometry, material);
+        pointCloud.name = 'COLMAP_Points';
+        
+        return pointCloud;
     }
     
     // Generate and download sample models

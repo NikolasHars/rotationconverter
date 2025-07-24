@@ -63,6 +63,10 @@ export function createInputPanel() {
                     <button class="btn btn-info btn-sm" onclick="document.getElementById('mesh-file-input').click()" data-tooltip="Load GLTF/GLB 3D model file" style="margin-top: 0.5rem;">
                         📁 Load 3D Model (.glb/.gltf)
                     </button>
+                    <input type="file" id="colmap-file-input" accept=".txt,.bin" style="display: none;" onchange="rotationConverter.loadColmapFile(event)">
+                    <button class="btn btn-info btn-sm" onclick="document.getElementById('colmap-file-input').click()" data-tooltip="Load COLMAP points3D.txt or points3D.bin file" style="margin-top: 0.5rem;">
+                        🗂️ Load COLMAP Points (.txt/.bin)
+                    </button>
                 </div>
                 
                 <div class="frame-controls">
