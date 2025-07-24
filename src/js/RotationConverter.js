@@ -1638,14 +1638,22 @@ export class RotationConverter {
         // Store the current scale
         frame.arrowScale = scale;
         
-        // Clear existing visuals (but preserve attached object)
+        // Clear existing visuals (but preserve attached object and child frames)
         const attachedObject = frame.attachedObject;
         const group = frame.group;
         
-        // Remove all children except the attached object
+        // Collect child frame groups to preserve them
+        const childFrameGroups = [];
+        frame.children.forEach(childFrame => {
+            if (childFrame.group && childFrame.group.parent === group) {
+                childFrameGroups.push(childFrame.group);
+            }
+        });
+        
+        // Remove all children except the attached object and child frame groups
         const childrenToRemove = [];
         group.children.forEach(child => {
-            if (child !== attachedObject) {
+            if (child !== attachedObject && !childFrameGroups.includes(child)) {
                 childrenToRemove.push(child);
             }
         });
