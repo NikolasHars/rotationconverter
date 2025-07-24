@@ -40,6 +40,31 @@ export function createInputPanel() {
                     </div>
                 </div>
                 
+                <div class="form-group">
+                    <label>Attach Object:</label>
+                    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                        <button class="btn btn-secondary btn-sm" onclick="rotationConverter.createSamplePhone()" data-tooltip="Add a detailed phone model">
+                            📱 Phone+
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="rotationConverter.addTabletObject()" data-tooltip="Add a tablet-like object">
+                            📋 Tablet
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="rotationConverter.createSamplePlane()" data-tooltip="Add a textured test plane">
+                            🎨 Test Plane
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="rotationConverter.addCubeObject()" data-tooltip="Add a cube object">
+                            � Cube
+                        </button>
+                        <button class="btn btn-warning btn-sm" onclick="rotationConverter.removeFrameObject()" data-tooltip="Remove attached object">
+                            🗑️ Remove
+                        </button>
+                    </div>
+                    <input type="file" id="mesh-file-input" accept=".glb,.gltf" style="display: none;" onchange="rotationConverter.loadMeshFile(event)">
+                    <button class="btn btn-info btn-sm" onclick="document.getElementById('mesh-file-input').click()" data-tooltip="Load GLTF/GLB 3D model file" style="margin-top: 0.5rem;">
+                        📁 Load 3D Model (.glb/.gltf)
+                    </button>
+                </div>
+                
                 <div class="frame-controls">
                     <button class="btn btn-primary btn-sm" onclick="rotationConverter.addFrame(prompt('Frame name:') || 'New Frame')">
                         ➕ Add Frame
@@ -200,7 +225,10 @@ export function createVisualizationPanel() {
                         <span id="rot-z-value" class="slider-value">0°</span>
                     </div>
                 </div>
-                <button class="btn btn-secondary" onclick="rotationConverter.resetSliders()" style="margin-top: 10px;">Reset Rotation</button>
+                <div style="display: flex; gap: 0.5rem; margin-top: 10px;">
+                    <button class="btn btn-secondary" onclick="rotationConverter.resetSliders()">Reset Rotation</button>
+                    <button class="btn btn-primary" onclick="rotationConverter.setSliderBase()">Set as Base</button>
+                </div>
             </div>
             
             <div id="visualization-legend" class="visualization-info" style="display: none;">

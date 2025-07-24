@@ -6,6 +6,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 export class RotationConverter {
     constructor() {
@@ -198,10 +199,14 @@ export class RotationConverter {
             quaternion: new THREE.Quaternion(), // World quaternion
             worldPosition: new THREE.Vector3(), // World position
             
+            // Slider base quaternion for incremental rotations
+            baseQuaternion: null,
+            
             // Visual representation
             group: new THREE.Group(),
             color: color,
             arrowScale: 1.0,
+            attachedObject: null,
             
             // UI state
             isExpanded: true,
@@ -400,6 +405,11 @@ export class RotationConverter {
         if (!frame || frame === this.worldFrame) {
             console.error('Cannot remove world frame or frame not found');
             return;
+        }
+        
+        // Clean up attached object
+        if (frame.attachedObject) {
+            this.removeFrameObject();
         }
         
         // Move children to parent
@@ -1133,10 +1143,14 @@ export class RotationConverter {
         if (!frame) return;
         
         const degrees = parseFloat(value);
-        const radians = degrees * Math.PI / 180;
         
         // Update the value display
         document.getElementById(`rot-${axis}-value`).textContent = `${degrees}°`;
+        
+        // Store the base quaternion if not already stored
+        if (!frame.baseQuaternion) {
+            frame.baseQuaternion = frame.localQuaternion.clone();
+        }
         
         // Get current rotations from sliders
         const xSlider = document.getElementById('rot-x-slider');
@@ -1147,9 +1161,18 @@ export class RotationConverter {
         const yRad = parseFloat(ySlider.value) * Math.PI / 180;
         const zRad = parseFloat(zSlider.value) * Math.PI / 180;
         
-        // Create rotation from Euler angles (XYZ order)
-        const euler = new THREE.Euler(xRad, yRad, zRad, 'XYZ');
-        frame.localQuaternion.setFromEuler(euler);
+        // Create incremental rotations for each axis
+        const deltaQuatX = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), xRad);
+        const deltaQuatY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yRad);
+        const deltaQuatZ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), zRad);
+        
+        // Combine the delta rotations (order: Z, Y, X)
+        const combinedDelta = new THREE.Quaternion()
+            .multiplyQuaternions(deltaQuatZ, deltaQuatY)
+            .multiply(deltaQuatX);
+        
+        // Apply the delta rotation to the base quaternion
+        frame.localQuaternion.multiplyQuaternions(frame.baseQuaternion, combinedDelta);
         
         // Update all rotation input methods
         this.updateInputsFromActiveFrame();
@@ -1171,12 +1194,30 @@ export class RotationConverter {
             }
         });
         
-        // Reset frame rotation to identity
-        frame.localQuaternion.set(0, 0, 0, 1);
+        // Reset to base quaternion if it exists, otherwise identity
+        if (frame.baseQuaternion) {
+            frame.localQuaternion.copy(frame.baseQuaternion);
+        } else {
+            frame.localQuaternion.set(0, 0, 0, 1);
+        }
         
         // Update all rotation input methods
         this.updateInputsFromActiveFrame();
         this.updateFrameTransform(frame);
+    }
+    
+    // Set current quaternion as the new base for slider modifications
+    setSliderBase() {
+        const frame = this.getActiveFrame();
+        if (!frame) return;
+        
+        // Store current quaternion as new base
+        frame.baseQuaternion = frame.localQuaternion.clone();
+        
+        // Reset sliders to 0
+        this.resetSliders();
+        
+        console.log(`Set new slider base for frame ${frame.name}`);
     }
     
     toggleLegend() {
@@ -1213,17 +1254,37 @@ export class RotationConverter {
         // Store the current scale
         frame.arrowScale = scale;
         
-        // Clear existing visuals
+        // Clear existing visuals (but preserve attached object)
+        const attachedObject = frame.attachedObject;
         const group = frame.group;
-        while (group.children.length > 0) {
-            const child = group.children[0];
+        
+        // Remove all children except the attached object
+        const childrenToRemove = [];
+        group.children.forEach(child => {
+            if (child !== attachedObject) {
+                childrenToRemove.push(child);
+            }
+        });
+        
+        childrenToRemove.forEach(child => {
             group.remove(child);
             if (child.geometry) child.geometry.dispose();
-            if (child.material) child.material.dispose();
-        }
+            if (child.material) {
+                if (Array.isArray(child.material)) {
+                    child.material.forEach(mat => mat.dispose());
+                } else {
+                    child.material.dispose();
+                }
+            }
+        });
         
         // Recreate visuals with new scale
         this.createFrameVisuals(frame);
+        
+        // Scale the attached object if it exists
+        if (attachedObject) {
+            attachedObject.scale.setScalar(scale);
+        }
         
         // Update transform to maintain position
         this.updateFrameTransform(frame);
@@ -1321,33 +1382,510 @@ export class RotationConverter {
         console.log(`✅ Inserted frame "${newFrameName}" between "${originalParent.name}" and "${childFrame.name}"`);
     }
     
+    // Object attachment methods
+    addPhoneObject() {
+        const frame = this.getActiveFrame();
+        if (!frame) return;
+        
+        // Remove existing object if any
+        this.removeFrameObject();
+        
+        // Create phone-like object (iPhone-style)
+        const phoneGroup = new THREE.Group();
+        
+        // Main body with rounded edges
+        const bodyGeometry = new THREE.BoxGeometry(0.75, 1.55, 0.08);
+        // Round the edges by using a cylinder for the sides
+        const cornerRadius = 0.08;
+        
+        // Create rounded rectangle using CSG-like approach with multiple geometries
+        const bodyMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x1a1a1a,
+            shininess: 100,
+            transparent: true,
+            opacity: 0.9
+        });
+        const phoneBody = new THREE.Mesh(bodyGeometry, bodyMaterial);
+        phoneGroup.add(phoneBody);
+        
+        // Screen (slightly recessed)
+        const screenGeometry = new THREE.PlaneGeometry(0.65, 1.4);
+        const screenMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x000000,
+            shininess: 200
+        });
+        const screen = new THREE.Mesh(screenGeometry, screenMaterial);
+        screen.position.z = 0.035;
+        phoneGroup.add(screen);
+        
+        // Screen content (simulated)
+        const contentGeometry = new THREE.PlaneGeometry(0.6, 1.3);
+        const contentMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x2c3e50,
+            transparent: true,
+            opacity: 0.7
+        });
+        const screenContent = new THREE.Mesh(contentGeometry, contentMaterial);
+        screenContent.position.z = 0.036;
+        phoneGroup.add(screenContent);
+        
+        // Home button
+        const buttonGeometry = new THREE.CircleGeometry(0.04, 16);
+        const buttonMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x333333,
+            shininess: 50
+        });
+        const homeButton = new THREE.Mesh(buttonGeometry, buttonMaterial);
+        homeButton.position.set(0, -0.65, 0.035);
+        phoneGroup.add(homeButton);
+        
+        // Camera (small circle at top)
+        const cameraGeometry = new THREE.CircleGeometry(0.02, 12);
+        const cameraMaterial = new THREE.MeshPhongMaterial({ color: 0x111111 });
+        const camera = new THREE.Mesh(cameraGeometry, cameraMaterial);
+        camera.position.set(0, 0.7, 0.035);
+        phoneGroup.add(camera);
+        
+        // Speaker grille (small rectangles)
+        for (let i = -2; i <= 2; i++) {
+            const grillGeometry = new THREE.PlaneGeometry(0.03, 0.003);
+            const grillMaterial = new THREE.MeshPhongMaterial({ color: 0x222222 });
+            const grille = new THREE.Mesh(grillGeometry, grillMaterial);
+            grille.position.set(i * 0.04, 0.6, 0.035);
+            phoneGroup.add(grille);
+        }
+        
+        // Apply current arrow scale to the phone
+        phoneGroup.scale.setScalar(frame.arrowScale || 1.0);
+        
+        // Add to frame
+        frame.group.add(phoneGroup);
+        frame.attachedObject = phoneGroup;
+        
+        console.log(`📱 Added phone object to frame ${frame.name}`);
+    }
+    
+    addCubeObject() {
+        const frame = this.getActiveFrame();
+        if (!frame) return;
+        
+        this.removeFrameObject();
+        
+        const geometry = new THREE.BoxGeometry(1, 1, 1);
+        const material = new THREE.MeshPhongMaterial({ 
+            color: 0xe74c3c,
+            transparent: true,
+            opacity: 0.8,
+            shininess: 100
+        });
+        const cube = new THREE.Mesh(geometry, material);
+        
+        // Add wireframe overlay
+        const wireframeGeometry = new THREE.EdgesGeometry(geometry);
+        const wireframeMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.3, transparent: true });
+        const wireframe = new THREE.LineSegments(wireframeGeometry, wireframeMaterial);
+        cube.add(wireframe);
+        
+        // Apply current arrow scale to the cube
+        cube.scale.setScalar(frame.arrowScale || 1.0);
+        
+        frame.group.add(cube);
+        frame.attachedObject = cube;
+        
+        console.log(`📦 Added cube object to frame ${frame.name}`);
+    }
+    
+    addPlaneObject() {
+        const frame = this.getActiveFrame();
+        if (!frame) return;
+        
+        this.removeFrameObject();
+        
+        // Create a more interesting plane - like a tablet/screen
+        const planeGroup = new THREE.Group();
+        
+        // Main plane
+        const geometry = new THREE.PlaneGeometry(2, 1.5);
+        const material = new THREE.MeshPhongMaterial({ 
+            color: 0x2c3e50,
+            side: THREE.DoubleSide,
+            shininess: 100
+        });
+        const plane = new THREE.Mesh(geometry, material);
+        planeGroup.add(plane);
+        
+        // Border/bezel
+        const borderGeometry = new THREE.PlaneGeometry(2.1, 1.6);
+        const borderMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x34495e,
+            side: THREE.DoubleSide
+        });
+        const border = new THREE.Mesh(borderGeometry, borderMaterial);
+        border.position.z = -0.01;
+        planeGroup.add(border);
+        
+        // Screen grid pattern
+        for (let x = -0.8; x <= 0.8; x += 0.4) {
+            for (let y = -0.6; y <= 0.6; y += 0.3) {
+                const dotGeometry = new THREE.CircleGeometry(0.02, 8);
+                const dotMaterial = new THREE.MeshPhongMaterial({ 
+                    color: 0x3498db,
+                    transparent: true,
+                    opacity: 0.6
+                });
+                const dot = new THREE.Mesh(dotGeometry, dotMaterial);
+                dot.position.set(x, y, 0.001);
+                planeGroup.add(dot);
+            }
+        }
+        
+        // Apply current arrow scale to the plane
+        planeGroup.scale.setScalar(frame.arrowScale || 1.0);
+        
+        frame.group.add(planeGroup);
+        frame.attachedObject = planeGroup;
+        
+        console.log(`📄 Added plane object to frame ${frame.name}`);
+    }
+    
+    // Add a new tablet object
+    addTabletObject() {
+        const frame = this.getActiveFrame();
+        if (!frame) return;
+        
+        this.removeFrameObject();
+        
+        const tabletGroup = new THREE.Group();
+        
+        // Main body
+        const bodyGeometry = new THREE.BoxGeometry(1.6, 2.4, 0.08);
+        const bodyMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x2c3e50,
+            shininess: 100
+        });
+        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+        tabletGroup.add(body);
+        
+        // Screen
+        const screenGeometry = new THREE.PlaneGeometry(1.4, 2.1);
+        const screenMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x000000,
+            shininess: 200
+        });
+        const screen = new THREE.Mesh(screenGeometry, screenMaterial);
+        screen.position.z = 0.041;
+        tabletGroup.add(screen);
+        
+        // Home button
+        const buttonGeometry = new THREE.CircleGeometry(0.05, 16);
+        const buttonMaterial = new THREE.MeshPhongMaterial({ color: 0x34495e });
+        const homeButton = new THREE.Mesh(buttonGeometry, buttonMaterial);
+        homeButton.position.set(0, -1.1, 0.041);
+        tabletGroup.add(homeButton);
+        
+        // Apply current arrow scale to the tablet
+        tabletGroup.scale.setScalar(frame.arrowScale || 1.0);
+        
+        frame.group.add(tabletGroup);
+        frame.attachedObject = tabletGroup;
+        
+        console.log(`📱 Added tablet object to frame ${frame.name}`);
+    }
+    
+    removeFrameObject() {
+        const frame = this.getActiveFrame();
+        if (!frame || !frame.attachedObject) return;
+        
+        // Remove from scene
+        frame.group.remove(frame.attachedObject);
+        
+        // Dispose of geometry and material to free memory
+        if (frame.attachedObject.geometry) {
+            frame.attachedObject.geometry.dispose();
+        }
+        if (frame.attachedObject.material) {
+            if (Array.isArray(frame.attachedObject.material)) {
+                frame.attachedObject.material.forEach(mat => mat.dispose());
+            } else {
+                frame.attachedObject.material.dispose();
+            }
+        }
+        
+        // Handle groups (like phone object)
+        if (frame.attachedObject.children) {
+            frame.attachedObject.children.forEach(child => {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) {
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(mat => mat.dispose());
+                    } else {
+                        child.material.dispose();
+                    }
+                }
+            });
+        }
+        
+        frame.attachedObject = null;
+        console.log(`🗑️ Removed object from frame ${frame.name}`);
+    }
+    
+    loadMeshFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const frame = this.getActiveFrame();
+        if (!frame) return;
+        
+        console.log(`📁 Loading mesh file: ${file.name}`);
+        
+        // Remove existing object
+        this.removeFrameObject();
+        
+        const fileName = file.name.toLowerCase();
+        
+        if (fileName.endsWith('.glb') || fileName.endsWith('.gltf')) {
+            this.loadGLTFModel(file, frame);
+        } else {
+            alert('Currently only GLTF/GLB files are supported. Please use a .glb or .gltf file.');
+        }
+        
+        // Clear the file input
+        event.target.value = '';
+    }
+    
+    loadGLTFModel(file, frame) {
+        const loader = new GLTFLoader();
+        const reader = new FileReader();
+        
+        reader.onload = (e) => {
+            try {
+                const arrayBuffer = e.target.result;
+                loader.parse(arrayBuffer, '', (gltf) => {
+                    console.log('✅ GLTF model loaded successfully');
+                    
+                    const model = gltf.scene;
+                    
+                    // Scale the model to a reasonable size (optional)
+                    const box = new THREE.Box3().setFromObject(model);
+                    const size = box.getSize(new THREE.Vector3());
+                    const maxDimension = Math.max(size.x, size.y, size.z);
+                    
+                    if (maxDimension > 3) {
+                        const scale = 3 / maxDimension;
+                        model.scale.setScalar(scale);
+                    }
+                    
+                    // Apply additional scaling based on frame arrow scale
+                    const currentScale = model.scale.x;
+                    const frameScale = frame.arrowScale || 1.0;
+                    model.scale.setScalar(currentScale * frameScale);
+                    
+                    // Center the model
+                    box.setFromObject(model);
+                    const center = box.getCenter(new THREE.Vector3());
+                    model.position.sub(center);
+                    
+                    // Add to frame
+                    frame.group.add(model);
+                    frame.attachedObject = model;
+                    
+                    console.log(`📱 Added GLTF model to frame ${frame.name}`);
+                }, (error) => {
+                    console.error('Error loading GLTF model:', error);
+                    alert('Error loading 3D model. Please check the file format.');
+                });
+            } catch (error) {
+                console.error('Error parsing GLTF file:', error);
+                alert('Error parsing 3D model file.');
+            }
+        };
+        
+        reader.onerror = () => {
+            console.error('Error reading file');
+            alert('Error reading the file.');
+        };
+        
+        reader.readAsArrayBuffer(file);
+    }
+    
+    // Generate and download sample models
+    createSamplePhone() {
+        const frame = this.getActiveFrame();
+        if (!frame) return;
+        
+        // Remove existing object
+        this.removeFrameObject();
+        
+        // Create a more detailed phone model
+        const phoneGroup = new THREE.Group();
+        
+        // Main body
+        const bodyGeometry = new THREE.RoundedBoxGeometry ? 
+            new THREE.RoundedBoxGeometry(0.75, 1.55, 0.08, 5, 0.02) :
+            new THREE.BoxGeometry(0.75, 1.55, 0.08);
+        const bodyMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x1a1a1a,
+            shininess: 100
+        });
+        const phoneBody = new THREE.Mesh(bodyGeometry, bodyMaterial);
+        phoneGroup.add(phoneBody);
+        
+        // Screen with reflection
+        const screenGeometry = new THREE.PlaneGeometry(0.65, 1.35);
+        const screenMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x000000,
+            shininess: 300,
+            transparent: true,
+            opacity: 0.9
+        });
+        const screen = new THREE.Mesh(screenGeometry, screenMaterial);
+        screen.position.z = 0.041;
+        phoneGroup.add(screen);
+        
+        // Screen glow effect
+        const glowGeometry = new THREE.PlaneGeometry(0.63, 1.33);
+        const glowMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0x4a90e2,
+            transparent: true,
+            opacity: 0.1
+        });
+        const screenGlow = new THREE.Mesh(glowGeometry, glowMaterial);
+        screenGlow.position.z = 0.042;
+        phoneGroup.add(screenGlow);
+        
+        // Camera bump
+        const cameraGeometry = new THREE.CylinderGeometry(0.025, 0.025, 0.01, 16);
+        const cameraMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x333333,
+            shininess: 200
+        });
+        const camera = new THREE.Mesh(cameraGeometry, cameraMaterial);
+        camera.rotation.x = Math.PI / 2;
+        camera.position.set(-0.25, 0.65, 0.045);
+        phoneGroup.add(camera);
+        
+        // Camera lens
+        const lensGeometry = new THREE.CylinderGeometry(0.015, 0.015, 0.005, 16);
+        const lensMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x111111,
+            shininess: 500
+        });
+        const lens = new THREE.Mesh(lensGeometry, lensMaterial);
+        lens.rotation.x = Math.PI / 2;
+        lens.position.set(-0.25, 0.65, 0.05);
+        phoneGroup.add(lens);
+        
+        // Speaker grille
+        const grilleMaterial = new THREE.MeshPhongMaterial({ color: 0x222222 });
+        for (let i = -3; i <= 3; i++) {
+            const grillGeometry = new THREE.CylinderGeometry(0.005, 0.005, 0.01, 8);
+            const grille = new THREE.Mesh(grillGeometry, grilleMaterial);
+            grille.rotation.x = Math.PI / 2;
+            grille.position.set(i * 0.02, 0.7, 0.045);
+            phoneGroup.add(grille);
+        }
+        
+        // Home button with ring
+        const buttonGeometry = new THREE.CylinderGeometry(0.035, 0.035, 0.005, 16);
+        const buttonMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x2c3e50,
+            shininess: 100
+        });
+        const homeButton = new THREE.Mesh(buttonGeometry, buttonMaterial);
+        homeButton.rotation.x = Math.PI / 2;
+        homeButton.position.set(0, -0.65, 0.043);
+        phoneGroup.add(homeButton);
+        
+        // Button ring
+        const ringGeometry = new THREE.RingGeometry(0.035, 0.04, 16);
+        const ringMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x34495e,
+            shininess: 200
+        });
+        const buttonRing = new THREE.Mesh(ringGeometry, ringMaterial);
+        buttonRing.position.set(0, -0.65, 0.041);
+        phoneGroup.add(buttonRing);
+        
+        // Add to frame
+        frame.group.add(phoneGroup);
+        frame.attachedObject = phoneGroup;
+        
+        console.log(`📱 Added detailed phone model to frame ${frame.name}`);
+    }
+    
+    // Create a sample colored plane for testing
+    createSamplePlane() {
+        const frame = this.getActiveFrame();
+        if (!frame) return;
+        
+        this.removeFrameObject();
+        
+        // Create a colorful test pattern plane
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+        
+        // Create a gradient background
+        const gradient = ctx.createLinearGradient(0, 0, 512, 512);
+        gradient.addColorStop(0, '#3498db');
+        gradient.addColorStop(0.5, '#e74c3c');
+        gradient.addColorStop(1, '#f39c12');
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 512, 512);
+        
+        // Add a grid pattern
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 512; i += 64) {
+            ctx.beginPath();
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i, 512);
+            ctx.moveTo(0, i);
+            ctx.lineTo(512, i);
+            ctx.stroke();
+        }
+        
+        // Add text
+        ctx.fillStyle = 'white';
+        ctx.font = '48px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Test Pattern', 256, 256);
+        
+        // Create texture from canvas
+        const texture = new THREE.CanvasTexture(canvas);
+        
+        const geometry = new THREE.PlaneGeometry(2, 2);
+        const material = new THREE.MeshPhongMaterial({ 
+            map: texture,
+            side: THREE.DoubleSide,
+            shininess: 50
+        });
+        const plane = new THREE.Mesh(geometry, material);
+        
+        frame.group.add(plane);
+        frame.attachedObject = plane;
+        
+        console.log(`📄 Added textured plane to frame ${frame.name}`);
+    }
+    
     // Update slider values when switching frames or updating rotations
     updateSliders(frame) {
         if (this.isUpdatingInputs) return;
         
-        // Get Euler angles from quaternion
-        const euler = new THREE.Euler().setFromQuaternion(frame.localQuaternion, 'XYZ');
+        // Reset sliders to 0 when switching frames (since sliders represent delta from base)
+        const sliders = ['rot-x-slider', 'rot-y-slider', 'rot-z-slider'];
+        sliders.forEach(id => {
+            const slider = document.getElementById(id);
+            if (slider) {
+                slider.value = 0;
+                const axis = id.split('-')[1];
+                document.getElementById(`rot-${axis}-value`).textContent = '0°';
+            }
+        });
         
-        const xDeg = euler.x * 180 / Math.PI;
-        const yDeg = euler.y * 180 / Math.PI;
-        const zDeg = euler.z * 180 / Math.PI;
-        
-        // Update slider positions and value displays
-        const xSlider = document.getElementById('rot-x-slider');
-        const ySlider = document.getElementById('rot-y-slider');
-        const zSlider = document.getElementById('rot-z-slider');
-        
-        if (xSlider) {
-            xSlider.value = Math.max(-180, Math.min(180, xDeg));
-            document.getElementById('rot-x-value').textContent = `${Math.round(xDeg)}°`;
-        }
-        if (ySlider) {
-            ySlider.value = Math.max(-180, Math.min(180, yDeg));
-            document.getElementById('rot-y-value').textContent = `${Math.round(yDeg)}°`;
-        }
-        if (zSlider) {
-            zSlider.value = Math.max(-180, Math.min(180, zDeg));
-            document.getElementById('rot-z-value').textContent = `${Math.round(zDeg)}°`;
-        }
+        // Set base quaternion to current quaternion when switching frames
+        frame.baseQuaternion = frame.localQuaternion.clone();
     }
 }
