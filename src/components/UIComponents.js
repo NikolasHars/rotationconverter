@@ -183,28 +183,6 @@ export function createInputPanel() {
                 </div>
             </div>
             
-            <!-- Quaternion Input -->
-            <div class="input-section highlighted" data-input-type="quaternion">
-                <h3>Quaternion</h3>
-                <div class="form-group">
-                    <label for="quaternion-text">Quick Input (paste quaternion):</label>
-                    <input type="text" id="quaternion-text" class="form-control" 
-                           placeholder="e.g., 0.707 0 0 0.707 or [0.707, 0, 0, 0.707]" 
-                           onchange="rotationConverter.updateFromQuaternionText()"
-                           data-tooltip="Paste quaternion as: 'x y z w' or '[x, y, z, w]'">
-                </div>
-                <div class="vector-inputs with-label">
-                    <span class="input-label">x</span>
-                    <input type="number" id="q0" class="rotation-input" value="0" step="0.000001" data-tooltip="Quaternion x component">
-                    <span class="input-label">y</span>
-                    <input type="number" id="q1" class="rotation-input" value="0" step="0.000001" data-tooltip="Quaternion y component">
-                    <span class="input-label">z</span>
-                    <input type="number" id="q2" class="rotation-input" value="0" step="0.000001" data-tooltip="Quaternion z component">
-                    <span class="input-label">w</span>
-                    <input type="number" id="q3" class="rotation-input" value="1" step="0.000001" data-tooltip="Quaternion w component (real part)">
-                </div>
-            </div>
-
             <!-- Rotation Matrix Input -->
             <div class="input-section" data-input-type="matrix">
                 <h3>Rotation Matrix</h3>
@@ -276,6 +254,33 @@ export function createVisualizationPanel() {
                     <input type="number" id="position-z" class="form-control" 
                            value="0" step="0.1" data-tooltip="Z position in parent frame"
                            style="min-width: 80px;">
+                </div>
+            </div>
+            
+            <!-- Quaternion Input -->
+            <div class="slider-section" style="margin-top: 1rem;">
+                <h3>Frame Rotation (Quaternion)</h3>
+                <div class="form-group" style="margin-bottom: 0.75rem;">
+                    <label for="quaternion-text" style="font-size: 0.9rem; margin-bottom: 0.25rem; display: block;">Quick Input:</label>
+                    <input type="text" id="quaternion-text" class="form-control" 
+                           placeholder="e.g., 0.707 0 0 0.707 or [0.707, 0, 0, 0.707]" 
+                           onchange="rotationConverter.updateFromQuaternionText()"
+                           data-tooltip="Paste quaternion as: 'x y z w' or '[x, y, z, w]'"
+                           style="font-size: 0.9rem;">
+                </div>
+                <div class="vector-inputs with-label" style="display: grid; grid-template-columns: auto 1fr auto 1fr auto 1fr auto 1fr; gap: 0.5rem; align-items: center;">
+                    <span class="input-label">x</span>
+                    <input type="number" id="q0" class="rotation-input" value="0" step="0.000001" data-tooltip="Quaternion x component"
+                           style="min-width: 80px; font-size: 0.9rem;">
+                    <span class="input-label">y</span>
+                    <input type="number" id="q1" class="rotation-input" value="0" step="0.000001" data-tooltip="Quaternion y component"
+                           style="min-width: 80px; font-size: 0.9rem;">
+                    <span class="input-label">z</span>
+                    <input type="number" id="q2" class="rotation-input" value="0" step="0.000001" data-tooltip="Quaternion z component"
+                           style="min-width: 80px; font-size: 0.9rem;">
+                    <span class="input-label">w</span>
+                    <input type="number" id="q3" class="rotation-input" value="1" step="0.000001" data-tooltip="Quaternion w component (real part)"
+                           style="min-width: 80px; font-size: 0.9rem;">
                 </div>
             </div>
             
