@@ -183,22 +183,6 @@ export function createInputPanel() {
                 </div>
             </div>
             
-            <!-- Position Controls -->
-            <div class="input-section">
-                <h3>Position</h3>
-                <div class="vector-inputs position with-label">
-                    <span class="input-label">X</span>
-                    <input type="number" id="position-x" class="form-control" 
-                           value="0" step="0.1" data-tooltip="X position in parent frame">
-                    <span class="input-label">Y</span>
-                    <input type="number" id="position-y" class="form-control" 
-                           value="0" step="0.1" data-tooltip="Y position in parent frame">
-                    <span class="input-label">Z</span>
-                    <input type="number" id="position-z" class="form-control" 
-                           value="0" step="0.1" data-tooltip="Z position in parent frame">
-                </div>
-            </div>
-
             <!-- Quaternion Input -->
             <div class="input-section highlighted" data-input-type="quaternion">
                 <h3>Quaternion</h3>
@@ -275,6 +259,25 @@ export function createVisualizationPanel() {
                 </div>
             </div>
             <div id="scene-container" class="scene-container"></div>
+            
+            <!-- Position Controls -->
+            <div class="slider-section" style="margin-top: 1rem;">
+                <h3>Frame Position</h3>
+                <div class="vector-inputs position with-label" style="display: grid; grid-template-columns: auto 1fr auto 1fr auto 1fr; gap: 0.5rem; align-items: center;">
+                    <span class="input-label">X</span>
+                    <input type="number" id="position-x" class="form-control" 
+                           value="0" step="0.1" data-tooltip="X position in parent frame"
+                           style="min-width: 80px;">
+                    <span class="input-label">Y</span>
+                    <input type="number" id="position-y" class="form-control" 
+                           value="0" step="0.1" data-tooltip="Y position in parent frame"
+                           style="min-width: 80px;">
+                    <span class="input-label">Z</span>
+                    <input type="number" id="position-z" class="form-control" 
+                           value="0" step="0.1" data-tooltip="Z position in parent frame"
+                           style="min-width: 80px;">
+                </div>
+            </div>
             
             <!-- Rotation Sliders -->
             <div class="slider-section" style="margin-top: 1rem;">
