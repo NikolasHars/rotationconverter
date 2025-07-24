@@ -20,6 +20,10 @@ export class RotationConverter {
         this.frameCounter = 0;
         this.worldFrame = null;
         
+        // Visibility state
+        this.framesVisible = true;
+        this.childrenVisible = true;
+        
         this.isUpdatingInputs = false;
         
         this.init();
@@ -98,6 +102,9 @@ export class RotationConverter {
         // Handle window resize
         window.addEventListener('resize', () => this.handleResize());
         
+        // Add keyboard controls for camera movement
+        this.setupKeyboardControls();
+        
         console.log('✅ 3D scene setup complete');
     }
     
@@ -106,6 +113,7 @@ export class RotationConverter {
         
         // Make methods globally available for HTML onclick handlers
         window.rotationConverter = this;
+        window.toggleOutputPanel = () => this.toggleOutputPanel();
         
         // Setup event listeners
         this.setupInputEventListeners();
@@ -210,7 +218,8 @@ export class RotationConverter {
             
             // UI state
             isExpanded: true,
-            isVisible: true
+            isVisible: true,
+            individuallyVisible: true  // For individual frame visibility toggle
         };
         
         // Add to parent's children if not world frame
@@ -909,10 +918,315 @@ export class RotationConverter {
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(width, height);
     }
+
+    setupKeyboardControls() {
+        // Track pressed keys
+        this.pressedKeys = new Set();
+        
+        // Key press and release handlers
+        document.addEventListener('keydown', (event) => {
+            // Only handle when no input field is focused
+            if (document.activeElement.tagName === 'INPUT' || 
+                document.activeElement.tagName === 'TEXTAREA') {
+                return;
+            }
+            
+            this.pressedKeys.add(event.code);
+            event.preventDefault();
+        });
+        
+        document.addEventListener('keyup', (event) => {
+            this.pressedKeys.delete(event.code);
+        });
+        
+        // Process keyboard input in render loop
+        this.processKeyboardInput = () => {
+            if (!this.controls) return;
+            
+            const moveSpeed = 0.1;
+            const panSpeed = 0.05;
+            const target = this.controls.target;
+            const camera = this.camera;
+            
+            // Arrow keys and WASD for camera movement
+            if (this.pressedKeys.has('ArrowUp') || this.pressedKeys.has('KeyW')) {
+                // Move camera forward (toward target)
+                const direction = new THREE.Vector3();
+                direction.subVectors(target, camera.position).normalize();
+                camera.position.addScaledVector(direction, moveSpeed);
+            }
+            if (this.pressedKeys.has('ArrowDown') || this.pressedKeys.has('KeyS')) {
+                // Move camera backward (away from target)
+                const direction = new THREE.Vector3();
+                direction.subVectors(target, camera.position).normalize();
+                camera.position.addScaledVector(direction, -moveSpeed);
+            }
+            if (this.pressedKeys.has('ArrowLeft') || this.pressedKeys.has('KeyA')) {
+                // Pan camera and target left
+                const right = new THREE.Vector3();
+                right.crossVectors(camera.up, new THREE.Vector3().subVectors(target, camera.position)).normalize();
+                camera.position.addScaledVector(right, -panSpeed);
+                target.addScaledVector(right, -panSpeed);
+            }
+            if (this.pressedKeys.has('ArrowRight') || this.pressedKeys.has('KeyD')) {
+                // Pan camera and target right
+                const right = new THREE.Vector3();
+                right.crossVectors(camera.up, new THREE.Vector3().subVectors(target, camera.position)).normalize();
+                camera.position.addScaledVector(right, panSpeed);
+                target.addScaledVector(right, panSpeed);
+            }
+            
+            // Q/E for vertical movement
+            if (this.pressedKeys.has('KeyQ')) {
+                // Move up
+                camera.position.y += panSpeed;
+                target.y += panSpeed;
+            }
+            if (this.pressedKeys.has('KeyE')) {
+                // Move down
+                camera.position.y -= panSpeed;
+                target.y -= panSpeed;
+            }
+            
+            // R key to reset camera to origin view
+            if (this.pressedKeys.has('KeyR')) {
+                this.resetCameraToOrigin();
+                this.pressedKeys.delete('KeyR'); // Prevent continuous reset
+            }
+            
+            // Update controls
+            this.controls.update();
+        };
+        
+        console.log('⌨️ Keyboard controls enabled: Arrow keys/WASD to move, Q/E for up/down, R to reset');
+    }
+
+    resetCameraToOrigin() {
+        if (!this.controls) return;
+        
+        // Reset camera to a good default position
+        this.camera.position.set(5, 5, 5);
+        this.controls.target.set(0, 0, 0);
+        this.controls.update();
+        
+        console.log('📷 Camera reset to origin view');
+    }
+
+    // Output panel toggle functionality
+    toggleOutputPanel() {
+        console.log('🔧 Debug: RotationConverter.toggleOutputPanel called');
+        const panel = document.getElementById('output-panel-collapsible');
+        const toggle = document.getElementById('output-panel-toggle');
+        
+        console.log('🔧 Debug: Elements found:', {
+            panel: !!panel,
+            toggle: !!toggle,
+            panelDisplay: panel ? panel.style.display : 'not found'
+        });
+        
+        if (!panel || !toggle) {
+            console.error('🔧 Debug: Panel or toggle not found!');
+            return;
+        }
+        
+        if (panel.style.display === 'none') {
+            // Show panel
+            console.log('🔧 Debug: Showing panel');
+            panel.style.display = 'block';
+            toggle.classList.add('active');
+            toggle.textContent = '❌ Close';
+            
+            // Initialize output panel content if not already done
+            if (!panel.innerHTML.trim()) {
+                console.log('🔧 Debug: Initializing panel content');
+                panel.innerHTML = this.createCollapsibleOutputPanel();
+                this.updateOutputs(); // Update with current values
+            }
+        } else {
+            // Hide panel
+            console.log('🔧 Debug: Hiding panel');
+            panel.style.display = 'none';
+            toggle.classList.remove('active');
+            toggle.textContent = '📊 Output';
+        }
+    }
+
+    createCollapsibleOutputPanel() {
+        return `
+            <div class="output-panel-header">
+                <h3 style="margin: 0; font-size: 1.2rem; color: #10b981;">✨ MODERN COLLAPSIBLE OUTPUT ✨</h3>
+                <button onclick="rotationConverter.toggleOutputPanel()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer;">❌</button>
+            </div>
+            <div style="padding: 1rem; border: 2px solid #10b981; border-radius: 8px;">
+                <!-- Rotation Matrix Output -->
+                <div class="output-section">
+                    <h4>Rotation Matrix</h4>
+                    <div class="matrix-output" id="matrix-output">
+[1.000000, 0.000000, 0.000000]
+[0.000000, 1.000000, 0.000000]
+[0.000000, 0.000000, 1.000000]
+                    </div>
+                </div>
+
+                <!-- Quaternion Output -->
+                <div class="output-section">
+                    <h4>Quaternion [x, y, z, w]</h4>
+                    <div class="vector-output" id="quaternion-output">
+[0.000000, 0.000000, 0.000000, 1.000000]
+                    </div>
+                </div>
+
+                <!-- Euler Angles Output -->
+                <div class="output-section">
+                    <h4>Euler Angles [x, y, z] (radians)</h4>
+                    <div class="vector-output" id="euler-output">
+[0.000000, 0.000000, 0.000000]
+                    </div>
+                </div>
+                
+                <!-- World Transform Output -->
+                <div class="output-section">
+                    <h4>World Transform</h4>
+                    <div class="form-group">
+                        <label>Position</label>
+                        <div class="vector-output" id="world-position-output">
+[0.000000, 0.000000, 0.000000]
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Quaternion</label>
+                        <div class="vector-output" id="world-quaternion-output">
+[0.000000, 0.000000, 0.000000, 1.000000]
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Export Options -->
+                <div class="output-section">
+                    <h4>Export</h4>
+                    <div class="frame-controls">
+                        <button class="btn btn-primary btn-sm" onclick="rotationConverter.exportAsJSON()" data-tooltip="Export all frames as JSON">
+                            📄 Export JSON
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="rotationConverter.exportAsCSV()" data-tooltip="Export transforms as CSV">
+                            📊 Export CSV
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Export functions (placeholder implementations)
+    exportAsJSON() {
+        console.log('📄 Exporting as JSON...');
+        alert('JSON export feature coming soon!');
+    }
+
+    exportAsCSV() {
+        console.log('📊 Exporting as CSV...');
+        alert('CSV export feature coming soon!');
+    }
+
+    // Frame visibility controls
+    toggleFrameVisibility() {
+        // Toggle visibility state
+        this.framesVisible = !this.framesVisible;
+        
+        // Apply to all frames
+        for (const frame of this.frames.values()) {
+            this.setFrameVisibility(frame, this.framesVisible);
+        }
+        
+        console.log(`👁️ Frame visibility: ${this.framesVisible ? 'ON' : 'OFF'}`);
+    }
+
+    toggleActiveFrameVisibility() {
+        // Toggle visibility of only the currently active frame
+        const activeFrame = this.getActiveFrame();
+        if (!activeFrame) {
+            console.log('⚠️ No active frame to toggle');
+            return;
+        }
+        
+        // Initialize individuallyVisible if undefined
+        if (activeFrame.individuallyVisible === undefined) {
+            activeFrame.individuallyVisible = true;
+        }
+        
+        // Toggle the frame's individual visibility state
+        activeFrame.individuallyVisible = !activeFrame.individuallyVisible;
+        
+        // Apply visibility to this frame only
+        this.setFrameVisibility(activeFrame, activeFrame.individuallyVisible);
+        
+        console.log(`👁️ Frame "${activeFrame.name}" visibility: ${activeFrame.individuallyVisible ? 'ON' : 'OFF'}`);
+    }
+
+    toggleChildrenVisibility() {
+        // Toggle children visibility state (frames only, not objects)
+        this.childrenVisible = this.childrenVisible !== undefined ? !this.childrenVisible : false;
+        
+        // Apply to all non-world frames
+        for (const frame of this.frames.values()) {
+            if (frame.name !== 'World') {
+                this.setFrameVisibility(frame, this.childrenVisible, true); // true = axes only
+            }
+        }
+        
+        console.log(`👶 Child frame axes visibility: ${this.childrenVisible ? 'ON' : 'OFF'}`);
+    }
+
+    setFrameVisibility(frame, visible, axesOnly = false) {
+        if (!frame.group) return;
+        
+        // Toggle visibility of coordinate axes and labels
+        frame.group.children.forEach(child => {
+            if (axesOnly) {
+                // Only hide coordinate axes, keep attached objects visible
+                if (child.name && (child.name.includes('axis') || child.name.includes('label') || child.name.includes('Arrow'))) {
+                    child.visible = visible;
+                }
+            } else {
+                // Hide everything except attached objects
+                if (child !== frame.attachedObject) {
+                    child.visible = visible;
+                }
+            }
+        });
+    }
+
+    showKeyboardHelp() {
+        const helpText = `
+🎮 KEYBOARD CONTROLS:
+
+📹 Camera Movement:
+• Arrow Keys / WASD - Move camera forward/backward/left/right
+• Q / E - Move camera up/down
+• R - Reset camera to origin view
+
+🖱️ Mouse Controls:
+• Left Click + Drag - Rotate view
+• Right Click + Drag - Pan view  
+• Scroll Wheel - Zoom in/out
+
+💡 Tips:
+• Camera moves relative to current view direction
+• Use mouse for precise rotation adjustments
+• Press R anytime to return to origin view
+        `;
+        
+        alert(helpText);
+    }
     
     startRenderLoop() {
         const animate = () => {
             requestAnimationFrame(animate);
+            
+            // Process keyboard input
+            if (this.processKeyboardInput) {
+                this.processKeyboardInput();
+            }
             
             if (this.controls) {
                 this.controls.update();

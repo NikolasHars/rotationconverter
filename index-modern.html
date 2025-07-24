@@ -6,7 +6,7 @@
     <title>3D Rotation Converter - Modern Hierarchical</title>
     <link rel="icon" type="image/png" href="rotation-icon.png">
     <link rel="apple-touch-icon" type="image/png" href="rotation-icon.png">
-    <link rel="stylesheet" href="src/css/styles.css">
+    <link rel="stylesheet" href="src/css/styles.css?v=2025072401">
     
     <!-- Preload critical resources -->
     <link rel="preload" href="rotation-icon.svg" as="image">
@@ -22,6 +22,7 @@
                 <h1>3D Rotation Converter</h1>
                 <p style="margin: 0; color: var(--text-secondary); font-size: 1rem;">
                     Modern hierarchical reference frame system with real-time 3D visualization
+                    <span style="background: #10b981; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; margin-left: 10px;">🆕 MODERN VERSION v2.0</span>
                 </p>
             </div>
         </header>
@@ -38,11 +39,16 @@
                 <!-- Will be populated by JavaScript -->
             </section>
 
-            <!-- Output Panel -->
-            <section class="output-panel" id="output-panel">
+            <!-- Collapsible Output Panel (hidden by default) -->
+            <section class="output-panel-collapsible" id="output-panel-collapsible" style="display: none;">
                 <!-- Will be populated by JavaScript -->
             </section>
         </main>
+
+        <!-- Output Panel Toggle Button -->
+        <button id="output-panel-toggle" class="output-panel-toggle" onclick="toggleOutputPanel()">
+            📊 Output
+        </button>
 
         <!-- Footer -->
         <footer style="margin-top: 3rem; padding: 2rem 0; border-top: 1px solid var(--border-color); text-align: center; color: var(--text-secondary);">
@@ -89,24 +95,48 @@
     <!-- Application Scripts -->
     <script type="module">
         // Import modules
-        import { RotationConverter } from './src/js/RotationConverter.js';
-        import { createInputPanel, createVisualizationPanel, createOutputPanel } from './src/components/UIComponents.js';
+        import { RotationConverter } from './src/js/RotationConverter.js?v=2025072401';
+        import { createInputPanel, createVisualizationPanel } from './src/components/UIComponents.js?v=2025072401';
 
         // Wait for DOM to be ready
         document.addEventListener('DOMContentLoaded', async function() {
             console.log('🚀 Starting 3D Rotation Converter...');
+            console.log('🔧 Debug: DOM loaded, checking elements...');
+            
+            // Debug: Check if elements exist
+            const inputPanel = document.getElementById('input-panel');
+            const vizPanel = document.getElementById('visualization-panel');
+            const outputPanel = document.getElementById('output-panel-collapsible');
+            const toggleBtn = document.getElementById('output-panel-toggle');
+            
+            console.log('🔧 Debug: Elements found:', {
+                inputPanel: !!inputPanel,
+                vizPanel: !!vizPanel,
+                outputPanel: !!outputPanel,
+                toggleBtn: !!toggleBtn
+            });
             
             try {
                 // Populate UI components
                 document.getElementById('input-panel').innerHTML = createInputPanel();
                 document.getElementById('visualization-panel').innerHTML = createVisualizationPanel();
-                document.getElementById('output-panel').innerHTML = createOutputPanel();
+                console.log('🔧 Debug: UI components populated');
                 
                 // Initialize the rotation converter
                 const rotationConverter = new RotationConverter();
+                console.log('🔧 Debug: RotationConverter initialized');
                 
                 // Make it globally available
                 window.rotationConverter = rotationConverter;
+                
+                // Initialize the collapsible output panel content
+                const outputPanelEl = document.getElementById('output-panel-collapsible');
+                if (outputPanelEl) {
+                    outputPanelEl.innerHTML = rotationConverter.createCollapsibleOutputPanel();
+                    console.log('🔧 Debug: Output panel content initialized');
+                } else {
+                    console.error('🔧 Debug: Output panel element not found!');
+                }
                 
                 // Add additional methods to the converter for export functionality
                 rotationConverter.exportAsJSON = function() {
@@ -223,6 +253,17 @@
                     a.click();
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
+                };
+                
+                // Global toggle function for output panel
+                window.toggleOutputPanel = function() {
+                    console.log('🔧 Debug: toggleOutputPanel called');
+                    if (window.rotationConverter) {
+                        console.log('🔧 Debug: rotationConverter found, calling toggle');
+                        window.rotationConverter.toggleOutputPanel();
+                    } else {
+                        console.error('🔧 Debug: rotationConverter not found!');
+                    }
                 };
                 
                 // Hide loading overlay

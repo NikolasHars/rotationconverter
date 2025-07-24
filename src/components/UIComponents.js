@@ -4,8 +4,10 @@
 
 export function createInputPanel() {
     return `
-        <div class="panel">
-            <div class="panel-header">
+        <div class="pane                    </div>
+                </div>
+                
+                <!-- Rotation Input Methods --><div class="panel-header">
                 <h2 class="panel-title">Input Controls</h2>
             </div>
             
@@ -104,6 +106,55 @@ export function createInputPanel() {
                     <button class="btn btn-warning btn-sm" onclick="rotationConverter.removeActiveFrame()">
                         🗑️ Remove Frame
                     </button>
+                </div>
+                
+                <!-- Frame Visibility Controls -->
+                <div class="form-group">
+                    <label>Visibility Controls:</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <button class="btn btn-secondary btn-sm" onclick="rotationConverter.toggleFrameVisibility()" data-tooltip="Toggle all coordinate frame axes">
+                            👁️ All Frames
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="rotationConverter.toggleChildrenVisibility()" data-tooltip="Toggle child frame axes only">
+                            👶 Children
+                        </button>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <button class="btn btn-info btn-sm" onclick="rotationConverter.toggleActiveFrameVisibility()" data-tooltip="Toggle visibility of current active frame only">
+                            🎯 Active Frame
+                        </button>
+                        <button class="btn btn-info btn-sm" onclick="rotationConverter.showKeyboardHelp()" data-tooltip="Show keyboard control shortcuts">
+                            ⌨️ Controls
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="frame-controls">
+                    <label>Frame Visibility:</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                        <button class="btn btn-secondary btn-sm" onclick="rotationConverter.toggleFrameVisibility()" data-tooltip="Hide/show coordinate axes for all frames">
+                            👁️ Toggle Frames
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="rotationConverter.toggleChildrenVisibility()" data-tooltip="Hide/show only child frame axes (keep objects visible)">
+                            👶 Toggle Children
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Camera Controls -->
+                <div class="form-group">
+                    <label>Camera Controls:</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <button class="btn btn-info btn-sm" onclick="rotationConverter.resetCameraToOrigin()" data-tooltip="Reset camera to origin view (or press R)">
+                            📷 Reset Camera
+                        </button>
+                        <button class="btn btn-info btn-sm" onclick="rotationConverter.showKeyboardHelp()" data-tooltip="Show keyboard shortcuts">
+                            ⌨️ Controls Help
+                        </button>
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4;">
+                        <strong>Keyboard:</strong> Arrow keys/WASD = move, Q/E = up/down, R = reset
+                    </div>
                 </div>
                 
                 <div class="frame-controls">
