@@ -254,6 +254,7 @@ export class RotationConverter {
         const xGeometry = new THREE.CylinderGeometry(axisWidth, axisWidth, axisLength, 8);
         const xMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
         const xAxis = new THREE.Mesh(xGeometry, xMaterial);
+        xAxis.name = 'x-axis';
         xAxis.rotation.z = -Math.PI / 2;
         xAxis.position.x = axisLength / 2;
         group.add(xAxis);
@@ -261,6 +262,7 @@ export class RotationConverter {
         // X-axis arrow
         const xArrowGeometry = new THREE.ConeGeometry(axisWidth * 2, axisWidth * 4, 8);
         const xArrow = new THREE.Mesh(xArrowGeometry, xMaterial);
+        xArrow.name = 'x-axis-Arrow';
         xArrow.rotation.z = -Math.PI / 2;
         xArrow.position.x = axisLength + axisWidth * 2;
         group.add(xArrow);
@@ -269,12 +271,14 @@ export class RotationConverter {
         const yGeometry = new THREE.CylinderGeometry(axisWidth, axisWidth, axisLength, 8);
         const yMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
         const yAxis = new THREE.Mesh(yGeometry, yMaterial);
+        yAxis.name = 'y-axis';
         yAxis.position.y = axisLength / 2;
         group.add(yAxis);
         
         // Y-axis arrow
         const yArrowGeometry = new THREE.ConeGeometry(axisWidth * 2, axisWidth * 4, 8);
         const yArrow = new THREE.Mesh(yArrowGeometry, yMaterial);
+        yArrow.name = 'y-axis-Arrow';
         yArrow.position.y = axisLength + axisWidth * 2;
         group.add(yArrow);
         
@@ -282,6 +286,7 @@ export class RotationConverter {
         const zGeometry = new THREE.CylinderGeometry(axisWidth, axisWidth, axisLength, 8);
         const zMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
         const zAxis = new THREE.Mesh(zGeometry, zMaterial);
+        zAxis.name = 'z-axis';
         zAxis.rotation.x = Math.PI / 2;
         zAxis.position.z = axisLength / 2;
         group.add(zAxis);
@@ -289,6 +294,7 @@ export class RotationConverter {
         // Z-axis arrow
         const zArrowGeometry = new THREE.ConeGeometry(axisWidth * 2, axisWidth * 4, 8);
         const zArrow = new THREE.Mesh(zArrowGeometry, zMaterial);
+        zArrow.name = 'z-axis-Arrow';
         zArrow.rotation.x = Math.PI / 2;
         zArrow.position.z = axisLength + axisWidth * 2;
         group.add(zArrow);
@@ -301,6 +307,7 @@ export class RotationConverter {
             opacity: 0.8
         });
         const origin = new THREE.Mesh(originGeometry, originMaterial);
+        origin.name = 'origin-sphere';
         group.add(origin);
         
         // Frame label
@@ -1157,8 +1164,8 @@ export class RotationConverter {
         // Toggle the frame's individual visibility state
         activeFrame.individuallyVisible = !activeFrame.individuallyVisible;
         
-        // Apply visibility to this frame only
-        this.setFrameVisibility(activeFrame, activeFrame.individuallyVisible);
+        // Apply visibility to this frame only (not its children)
+        this.setIndividualFrameVisibility(activeFrame, activeFrame.individuallyVisible);
         
         console.log(`👁️ Frame "${activeFrame.name}" visibility: ${activeFrame.individuallyVisible ? 'ON' : 'OFF'}`);
     }
@@ -1184,7 +1191,7 @@ export class RotationConverter {
         frame.group.children.forEach(child => {
             if (axesOnly) {
                 // Only hide coordinate axes, keep attached objects visible
-                if (child.name && (child.name.includes('axis') || child.name.includes('label') || child.name.includes('Arrow'))) {
+                if (child.name && (child.name.includes('axis') || child.name.includes('label') || child.name.includes('Arrow') || child.name.includes('origin'))) {
                     child.visible = visible;
                 }
             } else {
@@ -1192,6 +1199,41 @@ export class RotationConverter {
                 if (child !== frame.attachedObject) {
                     child.visible = visible;
                 }
+            }
+        });
+    }
+
+    setIndividualFrameVisibility(frame, visible) {
+        // Only affects this specific frame's visual elements, not child frames
+        if (!frame.group) return;
+        
+        // Toggle visibility of coordinate axes and labels for this frame only
+        frame.group.children.forEach(child => {
+            // Skip groups that might be child frames (they have their own frame objects)
+            if (child.type === 'Group') {
+                // Check if this group belongs to a child frame by looking for a corresponding frame
+                let isChildFrame = false;
+                for (const childFrame of frame.children) {
+                    if (child === childFrame.group) {
+                        isChildFrame = true;
+                        break;
+                    }
+                }
+                
+                // If this is a child frame group, skip it
+                if (isChildFrame) {
+                    return;
+                }
+                
+                // If this is an attached object group, also skip it
+                if (child === frame.attachedObject) {
+                    return;
+                }
+            }
+            
+            // Only affect coordinate axes, labels, arrows, and origin of THIS frame
+            if (child.name && (child.name.includes('axis') || child.name.includes('label') || child.name.includes('Arrow') || child.name.includes('origin'))) {
+                child.visible = visible;
             }
         });
     }
