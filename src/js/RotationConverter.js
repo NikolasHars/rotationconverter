@@ -114,6 +114,7 @@ export class RotationConverter {
         // Make methods globally available for HTML onclick handlers
         window.rotationConverter = this;
         window.toggleOutputPanel = () => this.toggleOutputPanel();
+        window.toggleSection = (sectionId) => this.toggleSection(sectionId);
         
         // Setup event listeners
         this.setupInputEventListeners();
@@ -1122,6 +1123,33 @@ export class RotationConverter {
                 </div>
             </div>
         `;
+    }
+
+    // Collapsible section toggle functionality
+    toggleSection(sectionId) {
+        const content = document.getElementById(sectionId);
+        if (!content) {
+            console.warn(`⚠️ Section with id '${sectionId}' not found`);
+            return;
+        }
+        
+        const header = content.previousElementSibling;
+        const icon = header ? header.querySelector('.toggle-icon') : null;
+        
+        if (!header || !icon) {
+            console.warn(`⚠️ Header or icon not found for section '${sectionId}'`);
+            return;
+        }
+        
+        if (content.style.display === 'none') {
+            content.style.display = 'block';
+            icon.textContent = '▼';
+            header.setAttribute('aria-expanded', 'true');
+        } else {
+            content.style.display = 'none';
+            icon.textContent = '▶';
+            header.setAttribute('aria-expanded', 'false');
+        }
     }
 
     // Export functions (placeholder implementations)

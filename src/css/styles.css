@@ -705,3 +705,99 @@ select:focus-visible {
     overflow: hidden;
     background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
 }
+
+/* Collapsible Section Styles */
+.collapsible-section {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-sm);
+    background: var(--bg-secondary);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.collapsible-section:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.collapsible-header {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    border: none;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.collapsible-header:hover {
+    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+}
+
+.collapsible-header:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
+}
+
+.toggle-icon {
+    transition: transform 0.2s ease;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.collapsible-header[aria-expanded="true"] .toggle-icon {
+    transform: rotate(90deg);
+}
+
+.collapsible-content {
+    padding: var(--spacing-md);
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-primary);
+    transition: all 0.2s ease;
+}
+
+.collapsible-content.collapsed {
+    display: none;
+}
+
+/* Enhanced form controls within collapsible sections */
+.collapsible-content .form-group {
+    margin-bottom: var(--spacing-sm);
+}
+
+.collapsible-content .form-row {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+    margin-bottom: var(--spacing-xs);
+}
+
+.collapsible-content .form-row label {
+    min-width: 80px;
+    font-size: 0.85rem;
+}
+
+.collapsible-content .form-row input,
+.collapsible-content .form-row select {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Compact button groups within sections */
+.collapsible-content .button-group {
+    display: flex;
+    gap: var(--spacing-xs);
+    flex-wrap: wrap;
+}
+
+.collapsible-content .button-group button {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 0.8rem;
+}
