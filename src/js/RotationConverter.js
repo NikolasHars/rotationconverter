@@ -1462,6 +1462,9 @@ export class RotationConverter {
         frame.group.add(phoneGroup);
         frame.attachedObject = phoneGroup;
         
+        // Hide COLMAP alignment controls for non-COLMAP objects
+        this.updateColmapControlsVisibility(false);
+        
         console.log(`📱 Added phone object to frame ${frame.name}`);
     }
     
@@ -1626,7 +1629,19 @@ export class RotationConverter {
         }
         
         frame.attachedObject = null;
+        
+        // Hide COLMAP alignment controls when object is removed
+        this.updateColmapControlsVisibility(false);
+        
         console.log(`🗑️ Removed object from frame ${frame.name}`);
+    }
+
+    // Helper method to manage COLMAP alignment controls visibility
+    updateColmapControlsVisibility(isColmapObject = false) {
+        const alignmentControls = document.getElementById('colmap-alignment-controls');
+        if (alignmentControls) {
+            alignmentControls.style.display = isColmapObject ? 'block' : 'none';
+        }
     }
     
     loadMeshFile(event) {
@@ -1667,7 +1682,7 @@ export class RotationConverter {
         if (fileName.includes('points3d') || fileName.endsWith('.txt') || fileName.endsWith('.bin')) {
             this.loadColmapModel(file, frame);
         } else {
-            alert('Please select a COLMAP points3D.txt or points3D.bin file.');
+            alert('Please select a point cloud file: COLMAP points3D.txt/bin or simple XYZ RGB text file.');
         }
         
         // Clear the file input
@@ -1736,7 +1751,32 @@ export class RotationConverter {
             // Detect file format and parse accordingly
             if (file.name.includes('points3D.txt') || file.name.endsWith('.txt')) {
                 const text = await file.text();
-                points3D = this.parseColmapTextPoints(text);
+                
+                // Try to detect if it's COLMAP format vs simple XYZ RGB format
+                if (text.includes('# 3D point list') || text.includes('POINT3D_ID')) {
+                    // COLMAP text format
+                    points3D = this.parseColmapTextPoints(text);
+                } else {
+                    // Check if it looks like simple XYZ RGB format
+                    const lines = text.split('\n').filter(line => 
+                        line.trim().length > 0 && !line.trim().startsWith('#')
+                    );
+                    
+                    if (lines.length > 0) {
+                        const firstLine = lines[0].trim().split(/[\s,]+/);
+                        
+                        if (firstLine.length >= 6) {
+                            // Looks like XYZ RGB format (6 columns)
+                            points3D = this.parseSimpleXYZRGBPoints(text);
+                        } else if (firstLine.length >= 7) {
+                            // Might be COLMAP text format (7+ columns)
+                            points3D = this.parseColmapTextPoints(text);
+                        } else {
+                            alert('Unrecognized text format. Expected either COLMAP format or simple "X Y Z R G B" format.');
+                            return;
+                        }
+                    }
+                }
             } else if (file.name.includes('points3D.bin') || file.name.endsWith('.bin')) {
                 const arrayBuffer = await file.arrayBuffer();
                 points3D = this.parseColmapBinaryPoints(arrayBuffer);
@@ -1749,7 +1789,14 @@ export class RotationConverter {
                 if (firstBytesStr.includes('# 3D point list') || firstBytesStr.includes('#')) {
                     // Looks like text format
                     const text = new TextDecoder().decode(arrayBuffer);
-                    points3D = this.parseColmapTextPoints(text);
+                    
+                    if (text.includes('POINT3D_ID') || text.includes('# 3D point list')) {
+                        // COLMAP text format
+                        points3D = this.parseColmapTextPoints(text);
+                    } else {
+                        // Simple XYZ RGB format
+                        points3D = this.parseSimpleXYZRGBPoints(text);
+                    }
                 } else {
                     // Assume binary format
                     points3D = this.parseColmapBinaryPoints(arrayBuffer);
@@ -1770,6 +1817,9 @@ export class RotationConverter {
             // Add to frame
             frame.group.add(pointCloud);
             frame.attachedObject = pointCloud;
+            
+            // Show alignment controls
+            this.updateColmapControlsVisibility(true);
             
             console.log(`🗂️ Added ${points3D.length} COLMAP points to frame ${frame.name}`);
             
@@ -1894,6 +1944,48 @@ export class RotationConverter {
         return points;
     }
 
+    parseSimpleXYZRGBPoints(text) {
+        const lines = text.split('\n');
+        const points = [];
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            
+            // Skip comments and empty lines
+            if (line.startsWith('#') || line.length === 0) {
+                continue;
+            }
+            
+            // Parse point line: X Y Z R G B (space or comma separated)
+            const parts = line.split(/[\s,]+/).filter(part => part.length > 0);
+            
+            if (parts.length >= 6) {
+                const point = {
+                    id: i,
+                    x: parseFloat(parts[0]),
+                    y: parseFloat(parts[1]),
+                    z: parseFloat(parts[2]),
+                    r: parseFloat(parts[3]), // Already 0-1 range
+                    g: parseFloat(parts[4]), // Already 0-1 range
+                    b: parseFloat(parts[5]), // Already 0-1 range
+                    error: 0
+                };
+                
+                // Only include points with reasonable coordinates and colors
+                if (isFinite(point.x) && isFinite(point.y) && isFinite(point.z) &&
+                    isFinite(point.r) && isFinite(point.g) && isFinite(point.b) &&
+                    point.r >= 0 && point.r <= 1 &&
+                    point.g >= 0 && point.g <= 1 &&
+                    point.b >= 0 && point.b <= 1) {
+                    points.push(point);
+                }
+            }
+        }
+        
+        console.log(`✅ Parsed ${points.length} points from XYZ RGB file`);
+        return points;
+    }
+
     createPointCloud(points, frame) {
         const geometry = new THREE.BufferGeometry();
         const positions = new Float32Array(points.length * 3);
@@ -1906,7 +1998,7 @@ export class RotationConverter {
         for (let i = 0; i < points.length; i++) {
             const point = points[i];
             
-            // Positions
+            // Store original positions first
             positions[i * 3] = point.x;
             positions[i * 3 + 1] = point.y;
             positions[i * 3 + 2] = point.z;
@@ -1925,23 +2017,20 @@ export class RotationConverter {
             maxZ = Math.max(maxZ, point.z);
         }
         
-        // Center and scale the point cloud
-        const centerX = (minX + maxX) / 2;
-        const centerY = (minY + maxY) / 2;
-        const centerZ = (minZ + maxZ) / 2;
-        
+        // Calculate scale factor to fit within reasonable bounds
         const sizeX = maxX - minX;
         const sizeY = maxY - minY;
         const sizeZ = maxZ - minZ;
         const maxSize = Math.max(sizeX, sizeY, sizeZ);
         
-        // Scale to fit within a reasonable size (e.g., 4 units)
+        // Scale to fit within a reasonable size (e.g., 4 units) but preserve origin relationship
         const scale = maxSize > 0 ? 4.0 / maxSize : 1.0;
         
+        // Apply scaling without centering to preserve COLMAP coordinate system
         for (let i = 0; i < points.length; i++) {
-            positions[i * 3] = (positions[i * 3] - centerX) * scale;
-            positions[i * 3 + 1] = (positions[i * 3 + 1] - centerY) * scale;
-            positions[i * 3 + 2] = (positions[i * 3 + 2] - centerZ) * scale;
+            positions[i * 3] = positions[i * 3] * scale;
+            positions[i * 3 + 1] = positions[i * 3 + 1] * scale;
+            positions[i * 3 + 2] = positions[i * 3 + 2] * scale;
         }
         
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -1949,7 +2038,7 @@ export class RotationConverter {
         
         // Create point cloud material
         const material = new THREE.PointsMaterial({
-            size: 0.02,
+            size: 0.03,
             vertexColors: true,
             sizeAttenuation: true
         });
@@ -1957,7 +2046,114 @@ export class RotationConverter {
         const pointCloud = new THREE.Points(geometry, material);
         pointCloud.name = 'COLMAP_Points';
         
+        // Store metadata for potential adjustments
+        pointCloud.userData = {
+            originalBounds: { minX, minY, minZ, maxX, maxY, maxZ },
+            scaleFactor: scale,
+            pointCount: points.length,
+            originalPositions: new Float32Array(positions) // Store copy of scaled positions
+        };
+        
+        console.log(`📊 COLMAP Point Cloud Stats:
+        - Points: ${points.length}
+        - Original bounds: (${minX.toFixed(3)}, ${minY.toFixed(3)}, ${minZ.toFixed(3)}) to (${maxX.toFixed(3)}, ${maxY.toFixed(3)}, ${maxZ.toFixed(3)})
+        - Scale factor: ${scale.toFixed(6)}
+        - Final size: ${(maxSize * scale).toFixed(3)} units`);
+        
         return pointCloud;
+    }
+
+    // COLMAP point cloud alignment methods
+    centerColmapPoints() {
+        const frame = this.getActiveFrame();
+        if (!frame || !frame.attachedObject || frame.attachedObject.name !== 'COLMAP_Points') {
+            alert('Please select a frame with COLMAP points loaded.');
+            return;
+        }
+
+        const pointCloud = frame.attachedObject;
+        const geometry = pointCloud.geometry;
+        
+        // Calculate center of current positions
+        geometry.computeBoundingBox();
+        const box = geometry.boundingBox;
+        const center = box.getCenter(new THREE.Vector3());
+        
+        // Translate all points to center at origin
+        const positions = geometry.attributes.position.array;
+        for (let i = 0; i < positions.length; i += 3) {
+            positions[i] -= center.x;
+            positions[i + 1] -= center.y;
+            positions[i + 2] -= center.z;
+        }
+        
+        geometry.attributes.position.needsUpdate = true;
+        geometry.computeBoundingBox();
+        
+        console.log('🎯 Centered COLMAP points at frame origin');
+    }
+
+    resetColmapPoints() {
+        const frame = this.getActiveFrame();
+        if (!frame || !frame.attachedObject || frame.attachedObject.name !== 'COLMAP_Points') {
+            alert('Please select a frame with COLMAP points loaded.');
+            return;
+        }
+
+        const pointCloud = frame.attachedObject;
+        
+        // Check if we have original data stored
+        if (!pointCloud.userData.originalPositions) {
+            alert('Original positions not available. Please reload the COLMAP file.');
+            return;
+        }
+        
+        // Restore original positions
+        const geometry = pointCloud.geometry;
+        const positions = geometry.attributes.position.array;
+        const original = pointCloud.userData.originalPositions;
+        
+        for (let i = 0; i < positions.length; i++) {
+            positions[i] = original[i];
+        }
+        
+        geometry.attributes.position.needsUpdate = true;
+        geometry.computeBoundingBox();
+        
+        console.log('🔄 Reset COLMAP points to original positions');
+    }
+
+    flipColmapZ() {
+        const frame = this.getActiveFrame();
+        if (!frame || !frame.attachedObject || frame.attachedObject.name !== 'COLMAP_Points') {
+            alert('Please select a frame with COLMAP points loaded.');
+            return;
+        }
+
+        const pointCloud = frame.attachedObject;
+        const geometry = pointCloud.geometry;
+        const positions = geometry.attributes.position.array;
+        
+        // Flip Z coordinates
+        for (let i = 2; i < positions.length; i += 3) {
+            positions[i] = -positions[i];
+        }
+        
+        geometry.attributes.position.needsUpdate = true;
+        geometry.computeBoundingBox();
+        
+        console.log('↕️ Flipped Z-axis of COLMAP points');
+    }
+
+    updateColmapPointSize(size) {
+        const frame = this.getActiveFrame();
+        if (!frame || !frame.attachedObject || frame.attachedObject.name !== 'COLMAP_Points') {
+            return;
+        }
+
+        const pointCloud = frame.attachedObject;
+        pointCloud.material.size = parseFloat(size);
+        pointCloud.material.needsUpdate = true;
     }
     
     // Generate and download sample models

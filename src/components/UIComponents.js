@@ -64,9 +64,31 @@ export function createInputPanel() {
                         📁 Load 3D Model (.glb/.gltf)
                     </button>
                     <input type="file" id="colmap-file-input" accept=".txt,.bin" style="display: none;" onchange="rotationConverter.loadColmapFile(event)">
-                    <button class="btn btn-info btn-sm" onclick="document.getElementById('colmap-file-input').click()" data-tooltip="Load COLMAP points3D.txt or points3D.bin file" style="margin-top: 0.5rem;">
-                        🗂️ Load COLMAP Points (.txt/.bin)
+                    <button class="btn btn-info btn-sm" onclick="document.getElementById('colmap-file-input').click()" data-tooltip="Load COLMAP points3D files or simple XYZ RGB text files" style="margin-top: 0.5rem;">
+                        🗂️ Load Point Cloud (.txt/.bin)
                     </button>
+                </div>
+                
+                <!-- Point Cloud Alignment Controls (shown when COLMAP points are loaded) -->
+                <div class="form-group" id="colmap-alignment-controls" style="display: none;">
+                    <label>Point Cloud Alignment:</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <button class="btn btn-secondary btn-sm" onclick="rotationConverter.centerColmapPoints()" data-tooltip="Center point cloud at frame origin">
+                            🎯 Center at Origin
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="rotationConverter.resetColmapPoints()" data-tooltip="Reset to original COLMAP positions">
+                            🔄 Reset Position
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="rotationConverter.flipColmapZ()" data-tooltip="Flip Z-axis (common for coordinate system differences)">
+                            ↕️ Flip Z
+                        </button>
+                    </div>
+                    <div style="display: grid; grid-template-columns: auto 1fr; gap: 0.5rem; align-items: center;">
+                        <label style="font-size: 0.9rem;">Point Size:</label>
+                        <input type="range" id="colmap-point-size" min="0.005" max="0.1" step="0.005" value="0.03" 
+                               oninput="rotationConverter.updateColmapPointSize(this.value)"
+                               data-tooltip="Adjust point cloud point size">
+                    </div>
                 </div>
                 
                 <div class="frame-controls">
